@@ -1,0 +1,19 @@
+# Unity generated
+[Ll]ibrary/
+[Tt]emp/
+[Oo]bj/
+[Bb]uild/
+[Bb]uilds/
+[Ll]ogs/
+[Uu]ser[Ss]ettings/
+
+# MemoryCaptures
+[Mm]emoryCaptures/
+
+# Rider / VS / VSCode
+.idea/
+.vscode/
+.vs/
+
+# macOS
+.DS_Store
