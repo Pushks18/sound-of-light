@@ -20,7 +20,7 @@ public class EnemyAI : MonoBehaviour
     {
         if (player == null || lightCount <= 0)
         {
-            rb.velocity = Vector2.zero;
+            rb.linearVelocity = Vector2.zero;
             return;
         }
 
@@ -30,11 +30,11 @@ public class EnemyAI : MonoBehaviour
         if (distance > stopDistance)
         {
             Vector2 dir = (player.position - transform.position).normalized;
-            rb.velocity = dir * moveSpeed;
+            rb.linearVelocity = dir * moveSpeed;
         }
         else
         {
-            rb.velocity = Vector2.zero;
+            rb.linearVelocity = Vector2.zero;
         }
     }
 

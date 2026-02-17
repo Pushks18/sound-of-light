@@ -10,7 +10,7 @@ public class Bullet : MonoBehaviour
     void Start()
     {
         rb = GetComponent<Rigidbody2D>();
-        rb.velocity = transform.up * speed;
+        rb.linearVelocity = transform.up * speed;
 
         // optional safety: ignore the shooter if you want
         // Physics2D.IgnoreCollision(...)
