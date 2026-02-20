@@ -24,8 +24,7 @@ public class EnemyShooting : MonoBehaviour
         if (player == null || enemyAI == null)
             return;
 
-        // Enemy must be lit to shoot
-        if (!IsEnemyLit())
+        if (!enemyAI.IsActivated || enemyAI.IsStunned())
             return;
 
         float distance = Vector2.Distance(transform.position, player.position);
@@ -44,12 +43,6 @@ public class EnemyShooting : MonoBehaviour
         {
             fireTimer = fireCooldown;
         }
-    }
-
-    bool IsEnemyLit()
-    {
-        // If enemy is moving, it means lightCount > 0
-        return enemyAI.enabled;
     }
 
     void Shoot()

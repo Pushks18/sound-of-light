@@ -1,17 +1,28 @@
 using UnityEngine;
 using System.Collections;
-using UnityEngine.Rendering.Universal; // 必须有这一行才能控制灯光
+using UnityEngine.Rendering.Universal;
 
 public class PlayerShooting : MonoBehaviour
 {
     public GameObject bulletPrefab;
     public Transform firePoint;
-    public Light2D muzzleFlashLight; // 拖入你角色身上的 MuzzleLight
-    public float flashDuration = 0.1f; // 闪烁时间
+    public Light2D muzzleFlashLight;
+    public float flashDuration = 0.05f;
+
+    public float energyCost = 1f;
+
+    private PlayerMovement playerMovement;
+    private LightEnergy lightEnergy;
+
+    void Start()
+    {
+        playerMovement = GetComponent<PlayerMovement>();
+        lightEnergy = GetComponent<LightEnergy>();
+    }
 
     void Update()
     {
-        if (Input.GetMouseButtonDown(0))
+        if (Input.GetKeyDown(KeyCode.K))
         {
             Shoot();
         }
@@ -19,31 +30,27 @@ public class PlayerShooting : MonoBehaviour
 
     void Shoot()
     {
-        if (bulletPrefab != null && firePoint != null)
+        if (bulletPrefab == null || firePoint == null || playerMovement == null)
+            return;
+
+        if (lightEnergy != null && !lightEnergy.TrySpend(energyCost))
+            return;
+
+        Vector2 direction = playerMovement.AimDirection;
+        float angle = Mathf.Atan2(direction.y, direction.x) * Mathf.Rad2Deg - 90f;
+
+        Instantiate(bulletPrefab, firePoint.position, Quaternion.Euler(0, 0, angle));
+
+        if (muzzleFlashLight != null)
         {
-            // 1. 计算从枪口到鼠标的方向
-            Vector3 mousePos = Camera.main.ScreenToWorldPoint(Input.mousePosition);
-            mousePos.z = 0; // 确保在2D平面上
-            Vector2 direction = (mousePos - firePoint.position).normalized;
-
-            // 2. 计算子弹该旋转的角度
-            float angle = Mathf.Atan2(direction.y, direction.x) * Mathf.Rad2Deg - 90f;
-
-            // 3. 生成子弹并设置它的角度
-            Instantiate(bulletPrefab, firePoint.position, Quaternion.Euler(0, 0, angle));
-
-            // 4. 让闪光亮起
-            if (muzzleFlashLight != null)
-            {
-                StartCoroutine(FlashRoutine());
-            }
+            StartCoroutine(FlashRoutine());
         }
     }
 
     IEnumerator FlashRoutine()
     {
-        muzzleFlashLight.intensity = 2f; // 变亮
+        muzzleFlashLight.intensity = 0.4f;
         yield return new WaitForSeconds(flashDuration);
-        muzzleFlashLight.intensity = 0f; // 熄灭
+        muzzleFlashLight.intensity = 0f;
     }
 }

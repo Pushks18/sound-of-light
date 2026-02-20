@@ -22,8 +22,28 @@ public class PlayerHealth : MonoBehaviour
 
     void Die()
     {
-        // simple behavior: destroy player (customize if you want respawn)
-        Destroy(gameObject);
-        Debug.Log("Player died");
+        var deathScreen = FindAnyObjectByType<DeathScreen>();
+        if (deathScreen != null)
+        {
+            deathScreen.Show();
+            // Disable player visuals and input without deactivating the
+            // GameObject, so the child camera keeps rendering.
+            var sr = GetComponent<SpriteRenderer>();
+            if (sr != null) sr.enabled = false;
+            var col = GetComponent<Collider2D>();
+            if (col != null) col.enabled = false;
+            var rb = GetComponent<Rigidbody2D>();
+            if (rb != null) rb.linearVelocity = Vector2.zero;
+
+            foreach (var mb in GetComponents<MonoBehaviour>())
+            {
+                if (mb != this) mb.enabled = false;
+            }
+            enabled = false;
+        }
+        else
+        {
+            Destroy(gameObject);
+        }
     }
 }

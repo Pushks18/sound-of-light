@@ -4,8 +4,8 @@ using UnityEngine.Rendering.Universal;
 public class EchoPulse : MonoBehaviour
 {
     private Light2D light2D;
-    public float expandSpeed = 15f;
-    public float fadeSpeed = 2f;
+    public float expandSpeed = 6f;
+    public float fadeSpeed = 4f;
     private float currentIntensity;
     private float currentRadius;
 

@@ -48,28 +48,4 @@ public class Bullet : MonoBehaviour
         Destroy(gameObject);
     }
 
-    // If your bullets are non-trigger colliders, use this instead:
-    void OnCollisionEnter2D(Collision2D collision)
-    {
-        GameObject other = collision.gameObject;
-
-        if (CompareTag("Bullet") && other.CompareTag("Enemy"))
-        {
-            other.GetComponent<EnemyHealth>()?.TakeDamage(1);
-            Destroy(gameObject);
-            return;
-        }
-
-        if (CompareTag("EnemyBullet") && other.CompareTag("Player"))
-        {
-            other.GetComponent<PlayerHealth>()?.TakeDamage(1);
-            Destroy(gameObject);
-            return;
-        }
-
-        if (impactEchoPrefab != null)
-            Instantiate(impactEchoPrefab, transform.position, Quaternion.identity);
-
-        Destroy(gameObject);
-    }
 }

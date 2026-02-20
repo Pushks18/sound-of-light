@@ -7,13 +7,17 @@ public class HealthUICounter : MonoBehaviour
     public EnemyHealth enemy;
     public TMP_Text playerText;
     public TMP_Text enemyText;
+    public TMP_Text flashlightText;
+
+    private LightEnergy lightEnergy;
 
     void Start()
     {
         if (player == null)
-            player = FindObjectOfType<PlayerHealth>();
+            player = FindAnyObjectByType<PlayerHealth>();
         if (enemy == null)
-            enemy = FindObjectOfType<EnemyHealth>();
+            enemy = FindAnyObjectByType<EnemyHealth>();
+        lightEnergy = FindAnyObjectByType<LightEnergy>();
     }
 
     void Update()
@@ -23,5 +27,8 @@ public class HealthUICounter : MonoBehaviour
 
         if (enemy != null && enemyText != null)
             enemyText.text = $"Enemy HP: {enemy.currentHealth} / {enemy.maxHealth}";
+
+        if (lightEnergy != null && flashlightText != null)
+            flashlightText.text = $"Energy: {lightEnergy.CurrentEnergy:F1} / {lightEnergy.MaxEnergy}";
     }
 }
