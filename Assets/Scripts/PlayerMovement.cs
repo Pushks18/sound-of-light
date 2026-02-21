@@ -3,10 +3,10 @@ using System;
 
 public class PlayerMovement : MonoBehaviour
 {
-    public float moveSpeed = 5f;
+    public float moveSpeed = 30f;
 
     [Header("Dash (Left Shift)")]
-    public float dashSpeed = 20f;
+    public float dashSpeed = 50f;
     public float dashDuration = 0.15f;
     public float dashCooldown = 1f;
     public float dashEnergyCost = 3f;
