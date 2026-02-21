@@ -6,7 +6,7 @@ public class PlayerLightWave : MonoBehaviour
     [Header("Light Wave Settings")]
     public float waveRadius = 12f;
     public float waveIntensity = 2.5f;
-    public float waveDuration = 1f;
+    public float waveDuration = 8f;
     public float energyCost = 10f;
     public float cooldown = 3f;
     public Color waveColor = new Color(1f, 0.95f, 0.8f);
