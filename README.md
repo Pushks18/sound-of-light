@@ -43,7 +43,7 @@ The world is dark. You have no flashlight — only your combat abilities produce
 
 ### Light Wave (L)
 - Emits a large 360-degree light burst (radius 12) centered on the player.
-- Fades over 1 second, activating all enemies in the room.
+- Fades over 2.5 second, activating all enemies in the room.
 - Use it to reveal an entire room — at the cost of waking everything up.
 - Cost: 10 energy, cooldown: 3 seconds.
 
@@ -57,6 +57,7 @@ The world is dark. You have no flashlight — only your combat abilities produce
 - This is the central design tension: **every attack you make has permanent consequences**. Light reveals threats but also creates them.
 - Stunned enemies can't move or shoot for the stun duration.
 - Enemies shoot back when activated, not stunned, and within range.
+- Enemies have lights to when the player comes close.
 
 ### Traps
 - Placed throughout the level, traps damage both players and enemies on contact.
@@ -73,7 +74,7 @@ The world is dark. You have no flashlight — only your combat abilities produce
 - Collectible keys unlock corresponding locked doors to gate progression between rooms.
 
 ### Shadows
-- Walls block light and cast shadows via ShadowCaster2D. Dark rooms stay dark until you bring light inside.
+- Walls block light and cast shadows via ShadowCaster2D. Dark rooms stay dark until you bring light inside. Room has a gray background.
 
 ### Death Screen
 - When the player dies, a "YOU DIED" screen appears with the option to press Space to restart.
