@@ -1,24 +1,65 @@
 using UnityEngine;
+using UnityEngine.Rendering.Universal;
 
 public class EnemyAI : MonoBehaviour
 {
-    public float moveSpeed = 1.5f;
-    public float stopDistance = 1.2f; // pixels / units away from player
+    [Header("Movement")]
+    public float baseSpeed = 2f;
+    public float boostedSpeed = 8f;
+    public float stopDistance = 1.2f;
 
     private Transform player;
     private Rigidbody2D rb;
 
-    private int lightCount = 0; // how many lights are touching enemy
+    private bool activated = false;     // permanently activated once lit
+    private int lightCount = 0;         // how many lights currently touching
+
+    private float stunTimer;
+    private float markTimer;
+
+    private Light2D markLight;
+
+    public bool IsActivated => activated;
 
     void Start()
     {
         rb = GetComponent<Rigidbody2D>();
         player = GameObject.FindGameObjectWithTag("Player")?.transform;
+
+        // Mark glow (small red light when hit)
+        var markObj = new GameObject("MarkLight");
+        markObj.transform.SetParent(transform);
+        markObj.transform.localPosition = Vector3.zero;
+
+        markLight = markObj.AddComponent<Light2D>();
+        markLight.lightType = Light2D.LightType.Freeform;
+        markLight.intensity = 0.6f;
+        markLight.falloffIntensity = 0.8f;
+        markLight.color = new Color(1f, 0.3f, 0.2f);
+        markLight.shadowsEnabled = false;
+        markLight.enabled = false;
+    }
+
+    void Update()
+    {
+        if (stunTimer > 0f)
+            stunTimer -= Time.deltaTime;
+
+        if (markTimer > 0f)
+        {
+            markTimer -= Time.deltaTime;
+            if (!markLight.enabled)
+                markLight.enabled = true;
+        }
+        else if (markLight.enabled)
+        {
+            markLight.enabled = false;
+        }
     }
 
     void FixedUpdate()
     {
-        if (player == null || lightCount <= 0)
+        if (player == null || !activated || stunTimer > 0f)
         {
             rb.linearVelocity = Vector2.zero;
             return;
@@ -26,11 +67,14 @@ public class EnemyAI : MonoBehaviour
 
         float distance = Vector2.Distance(transform.position, player.position);
 
-        // Move only until close enough
         if (distance > stopDistance)
         {
             Vector2 dir = (player.position - transform.position).normalized;
-            rb.linearVelocity = dir * moveSpeed;
+
+            //  Speed boost if currently in light
+            float currentSpeed = (lightCount > 0) ? boostedSpeed : baseSpeed;
+
+            rb.linearVelocity = dir * currentSpeed;
         }
         else
         {
@@ -43,6 +87,7 @@ public class EnemyAI : MonoBehaviour
         if (other.CompareTag("LightSource"))
         {
             lightCount++;
+            activated = true;   // permanently activate once lit
         }
     }
 
@@ -52,5 +97,26 @@ public class EnemyAI : MonoBehaviour
         {
             lightCount = Mathf.Max(0, lightCount - 1);
         }
+    }
+
+    public void Stun(float duration)
+    {
+        stunTimer = duration;
+        rb.linearVelocity = Vector2.zero;
+    }
+
+    public void Mark(float duration)
+    {
+        markTimer = duration;
+    }
+
+    public bool IsStunned()
+    {
+        return stunTimer > 0f;
+    }
+
+    public bool IsLit()
+    {
+        return lightCount > 0;
     }
 }
