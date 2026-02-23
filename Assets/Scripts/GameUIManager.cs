@@ -8,6 +8,7 @@ public class GameUIManager : MonoBehaviour
     [Header("UI 引用")]
     public TextMeshProUGUI hpText;
     public TextMeshProUGUI enemyText;
+    public TextMeshProUGUI flashText;
 
     void Start()
     {
@@ -38,5 +39,10 @@ public class GameUIManager : MonoBehaviour
         {
             Debug.Log("All enemies eliminated!");
         }
+    }
+
+    public void UpdateFlash(float currentFlash)
+    {
+        flashText.text = "Flash: " + currentFlash.ToString("F1") + "s / 5s";
     }
 }

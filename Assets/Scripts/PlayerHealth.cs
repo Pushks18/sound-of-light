@@ -4,15 +4,23 @@ public class PlayerHealth : MonoBehaviour
 {
     public int maxHealth = 3;
     [HideInInspector] public int currentHealth;
+    [SerializeField] private GameUIManager gameUIManager;
 
     void Awake()
     {
         currentHealth = maxHealth;
     }
 
+    void Start()
+    {
+        GameObject gameUIManagerGameObject = GameObject.Find("HealthUI");
+        gameUIManager = gameUIManagerGameObject.GetComponent<GameUIManager>();
+    }
+
     public void TakeDamage(int dmg)
     {
         currentHealth -= dmg;
+        gameUIManager.UpdateHP(currentHealth);
         if (currentHealth <= 0)
         {
             currentHealth = 0;
