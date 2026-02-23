@@ -10,9 +10,17 @@ public class EnemyHealth : MonoBehaviour
 
     [HideInInspector] public int currentHealth;
 
+    [SerializeField] private GameUIManager gameUIManager;
+
     void Awake()
     {
         currentHealth = maxHealth;
+    }
+
+    void Start()
+    {
+        GameObject gameUIManagerGameObject = GameObject.Find("HealthUI");
+        gameUIManager = gameUIManagerGameObject.GetComponent<GameUIManager>();
     }
 
     public void TakeDamage(int dmg)
@@ -32,6 +40,7 @@ public class EnemyHealth : MonoBehaviour
 
     void Die()
     {
+        gameUIManager.UpdateEnemyCount(GameObject.FindGameObjectsWithTag("Enemy").Length - 1);
         Destroy(gameObject);
         Debug.Log("Enemy died");
     }

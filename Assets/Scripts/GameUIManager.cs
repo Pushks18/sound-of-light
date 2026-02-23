@@ -15,7 +15,7 @@ public class GameUIManager : MonoBehaviour
         UpdateHP(3);
 
         // 运行一次计数逻辑，显示当前关卡里有多少怪
-        UpdateEnemyCount();
+        UpdateEnemyCount(GameObject.FindGameObjectsWithTag("Enemy").Length);
     }
 
     void Awake()
@@ -30,15 +30,12 @@ public class GameUIManager : MonoBehaviour
     }
 
     // 更新剩余敌人的方法
-    public void UpdateEnemyCount()
+    public void UpdateEnemyCount(int newCount)
     {
-        // 实时查找场景中带 Enemy 标签的物体数量
-        int count = GameObject.FindGameObjectsWithTag("Enemy").Length;
-        enemyText.text = "Enemies: " + count;
-
-        if (count <= 0)
+        Debug.Log("Updated count");
+        enemyText.text = "Enemies: " + newCount;
+        if (newCount <= 0)
         {
-            // 这里可以触发胜利逻辑
             Debug.Log("All enemies eliminated!");
         }
     }
