@@ -1,74 +1,88 @@
 using UnityEngine;
 using TMPro;
+using UnityEngine.SceneManagement;
 using System.Collections;
 
 public class TutorialManager : MonoBehaviour
 {
     public TMP_Text tutorialText;
 
-    private bool hasShot = false;
-    private bool hasMoved = false;
-    private bool showingMoveText = false;
-    private bool hidingMoveText = false;
+    private int enemiesKilled = 0;
+    private bool tutorialFinished = false;
+
+    void OnEnable()
+    {
+        EnemyHealth.OnEnemyKilled += HandleEnemyKilled;
+    }
+
+    void OnDisable()
+    {
+        EnemyHealth.OnEnemyKilled -= HandleEnemyKilled;
+    }
 
     void Start()
     {
-        if (tutorialText == null)
-        {
-            Debug.LogError("TutorialText not assigned!");
-            return;
-        }
-
-        tutorialText.text = "Left click to shoot";
-        tutorialText.gameObject.SetActive(true);
+        StartCoroutine(TutorialSequence());
     }
 
     void Update()
     {
-        // Detect first shot
-        if (!hasShot && Input.GetMouseButtonDown(0))
+        if (tutorialFinished && Input.GetKeyDown(KeyCode.Space))
         {
-            hasShot = true;
-            StartCoroutine(HandleShootTutorial());
-        }
-
-        // Detect movement AFTER move tutorial is shown
-        if (showingMoveText && !hasMoved && !hidingMoveText)
-        {
-            float h = Input.GetAxisRaw("Horizontal");
-            float v = Input.GetAxisRaw("Vertical");
-
-            if (h != 0 || v != 0)
-            {
-                hasMoved = true;
-                StartCoroutine(HideMoveTutorialAfterDelay());
-            }
+            SceneManager.LoadScene("MainMenu");
         }
     }
 
-    IEnumerator HandleShootTutorial()
+    IEnumerator TutorialSequence()
+{
+    // STEP 1 — Move
+    tutorialText.text = "WASD to move";
+    tutorialText.gameObject.SetActive(true);
+
+    yield return new WaitUntil(() => PlayerMoved());
+
+    tutorialText.gameObject.SetActive(false);
+    yield return new WaitForSeconds(0.5f);
+
+    // STEP 2 — Slash
+    tutorialText.text = "Press J to Slash";
+    tutorialText.gameObject.SetActive(true);
+
+    yield return new WaitUntil(() => enemiesKilled >= 1);
+
+    tutorialText.text = "Avoid the trap";
+    yield return new WaitForSeconds(8f);
+
+    // STEP 3 — Shoot
+    enemiesKilled = 0;
+    tutorialText.text = "Press K to Shoot";
+
+    yield return new WaitUntil(() => enemiesKilled >= 1);
+
+    tutorialText.gameObject.SetActive(false);
+    yield return new WaitForSeconds(0.5f);
+
+    // STEP 4 — Flash
+    tutorialText.text = "Press L to Flash";
+    tutorialText.gameObject.SetActive(true);
+
+    yield return new WaitUntil(() => Input.GetKeyDown(KeyCode.L));
+
+    yield return new WaitForSeconds(2f);
+
+    tutorialText.text = "Tutorial Complete\nPress SPACE to return to Menu";
+    tutorialFinished = true;
+}
+
+    void HandleEnemyKilled()
     {
-        // Keep "Left click to shoot" visible
-        yield return new WaitForSeconds(2.5f);
-
-        tutorialText.gameObject.SetActive(false);
-
-        // Small pause
-        yield return new WaitForSeconds(0.3f);
-
-        // Show movement tutorial
-        tutorialText.text = "WASD to move";
-        tutorialText.gameObject.SetActive(true);
-        showingMoveText = true;
+        enemiesKilled++;
     }
 
-    IEnumerator HideMoveTutorialAfterDelay()
+    bool PlayerMoved()
     {
-        hidingMoveText = true;
-
-        // Keep "WASD to move" visible after movement
-        yield return new WaitForSeconds(2.0f);
-
-        tutorialText.gameObject.SetActive(false);
+        float h = Input.GetAxisRaw("Horizontal");
+        float v = Input.GetAxisRaw("Vertical");
+        return h != 0 || v != 0;
     }
 }
