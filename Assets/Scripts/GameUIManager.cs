@@ -12,11 +12,19 @@ public class GameUIManager : MonoBehaviour
 
     void Start()
     {
+        if (flashText == null)
+        {
+            var flashObj = GameObject.Find("Flashlight_Charge_Text");
+            if (flashObj != null)
+                flashText = flashObj.GetComponent<TextMeshProUGUI>();
+        }
+
         // 假设玩家初始血量是 100，你可以根据你朋友的代码修改这个值
         UpdateHP(3);
 
         // 运行一次计数逻辑，显示当前关卡里有多少怪
         UpdateEnemyCount(GameObject.FindGameObjectsWithTag("Enemy").Length);
+        UpdateFlash(0f);
     }
 
     void Awake()
@@ -43,6 +51,7 @@ public class GameUIManager : MonoBehaviour
 
     public void UpdateFlash(float currentFlash)
     {
+        if (flashText == null) return;
         flashText.text = "Flash: " + currentFlash.ToString("F1") + "s / 5s";
     }
 }

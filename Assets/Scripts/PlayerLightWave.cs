@@ -6,9 +6,9 @@ public class PlayerLightWave : MonoBehaviour
     [Header("Light Wave Settings")]
     public float waveRadius = 12f;
     public float waveIntensity = 2.5f;
-    public float waveDuration = 8f;
+    public float waveDuration = 5f;
     public float energyCost = 10f;
-    public float cooldown = 3f;
+    public float cooldown = 5f;
     public Color waveColor = new Color(1f, 0.95f, 0.8f);
 
     private LightEnergy lightEnergy;
@@ -23,6 +23,8 @@ public class PlayerLightWave : MonoBehaviour
     {
         if (cooldownTimer > 0f)
             cooldownTimer -= Time.deltaTime;
+
+        GameUIManager.Instance?.UpdateFlash(cooldownTimer > 0f ? cooldownTimer : cooldown);
 
         if (Input.GetKeyDown(KeyCode.L) && cooldownTimer <= 0f)
         {
