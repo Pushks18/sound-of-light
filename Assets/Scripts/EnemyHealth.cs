@@ -16,6 +16,8 @@ public class EnemyHealth : MonoBehaviour
 
     public void TakeDamage(int dmg)
     {
+            Debug.Log("Enemy took damage");
+
         currentHealth -= dmg;
 
         if (hitGlowPrefab != null)
@@ -30,16 +32,22 @@ public class EnemyHealth : MonoBehaviour
     }
 
     void Die()
-    {
-        // 🔥 Notify tutorial system
-        OnEnemyKilled?.Invoke();
+{
+    if (GameManager.Instance == null)
+{
+    Debug.LogError("GameManager.Instance is NULL");
+}
+else
+{
+    Debug.Log("GameManager.Instance found");
+}
 
-        // 🔥 Update enemy count safely
-        GameUIManager.Instance?.UpdateEnemyCount(
-            GameObject.FindGameObjectsWithTag("Enemy").Length - 1
-        );
+    OnEnemyKilled?.Invoke();
 
-        Destroy(gameObject);
-        Debug.Log("Enemy died");
-    }
+    GameManager.Instance?.EnemyKilled();
+
+    Destroy(gameObject);
+
+    Debug.Log("Enemy died");
+}
 }
