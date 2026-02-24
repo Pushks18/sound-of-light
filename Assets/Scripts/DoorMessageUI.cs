@@ -18,6 +18,9 @@ public class DoorMessageUI : MonoBehaviour
     {
         if (instance == null) return;
 
+        // Must activate the GameObject before StartCoroutine (coroutines
+        // cannot run on inactive GameObjects).
+        instance.gameObject.SetActive(true);
         instance.StopAllCoroutines();
         instance.StartCoroutine(instance.ShowRoutine(message, duration));
     }

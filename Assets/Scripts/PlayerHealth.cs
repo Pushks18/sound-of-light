@@ -4,32 +4,29 @@ public class PlayerHealth : MonoBehaviour
 {
     public int maxHealth = 3;
     [HideInInspector] public int currentHealth;
-    [SerializeField] private GameUIManager gameUIManager;
-
     void Awake()
     {
         currentHealth = maxHealth;
     }
 
-    void Start()
-    {
-        GameObject gameUIManagerGameObject = GameObject.Find("HealthUI");
-        gameUIManager = gameUIManagerGameObject.GetComponent<GameUIManager>();
-    }
-
     public void TakeDamage(int dmg)
     {
+        if (currentHealth <= 0) return; // already dead
+
         currentHealth -= dmg;
-        gameUIManager.UpdateHP(currentHealth);
+        if (currentHealth < 0) currentHealth = 0;
+        GameUIManager.Instance?.UpdateHP(currentHealth);
         if (currentHealth <= 0)
         {
-            currentHealth = 0;
             Die();
         }
     }
 
     void Die()
     {
+        // Notify GameManager so it stops processing (e.g. prevents post-death wins)
+        GameManager.Instance?.PlayerDied();
+
         var deathScreen = FindAnyObjectByType<DeathScreen>();
         if (deathScreen != null)
         {

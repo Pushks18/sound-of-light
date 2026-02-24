@@ -26,12 +26,13 @@ The world is dark. You have no flashlight — only your combat abilities produce
 ### Slash (J)
 - 120-degree melee arc in your aim direction.
 - Produces a visible light cone and a semi-transparent arc showing exact range and angle.
-- Damages enemies caught in the arc (2 damage per hit).
+- Damages enemies caught in the arc (2 damage per hit). Line-of-sight check prevents damage through walls.
 - Cost: 3 energy, cooldown: 0.15 seconds.
 
 ### Shoot (K)
 - Fires a bullet in your aim direction.
 - Produces a brief muzzle flash.
+- Bullets pass through triggers (traps, doors, keys) and only stop on solid walls.
 - Cost: 1 energy per shot.
 
 ### Dash (Left Shift)
@@ -39,11 +40,12 @@ The world is dark. You have no flashlight — only your combat abilities produce
 - Leaves a trail of fading light orbs that shrink and dim over time.
 - Spawns shadow afterimages of the player that fade to transparent.
 - Deals 1 damage + 0.2 second stun to enemies on contact (once per enemy per dash).
+- Dodges traps if dashing fully across them.
 - Cost: 3 energy, cooldown: 1 second.
 
 ### Light Wave (L)
 - Emits a large 360-degree light burst (radius 12) centered on the player.
-- Fades over 2.5 second, activating all enemies in the room.
+- Fades over 2.5 seconds, activating all enemies in the room.
 - Use it to reveal an entire room — at the cost of waking everything up.
 - Cost: 10 energy, cooldown: 3 seconds.
 
@@ -54,30 +56,45 @@ The world is dark. You have no flashlight — only your combat abilities produce
 ### Enemies
 - Enemies are **dormant in the dark**. They don't move or shoot until light touches them.
 - **Once activated by any light source, enemies stay active permanently** — they chase at full speed even after the light is gone.
+- Enemies move faster while actively in a light source (boosted speed).
 - This is the central design tension: **every attack you make has permanent consequences**. Light reveals threats but also creates them.
 - Stunned enemies can't move or shoot for the stun duration.
 - Enemies shoot back when activated, not stunned, and within range.
-- Enemies have lights to when the player comes close.
+- Enemies glow briefly when hit (mark light).
+- Enemies have a proximity glow when the player comes close.
 
 ### Traps
-- Placed throughout the level, traps damage both players and enemies on contact.
-- Configurable: damage, cooldown, trigger delay, and whether they affect players/enemies.
-- Optional light burst on activation that can wake nearby enemies.
+- Traps are invisible until revealed by a light source.
+- **Dormant:** Hidden, no damage. Light from abilities (slash, dash, light wave, bullets) reveals them.
+- **Arming (2 seconds):** Once revealed, a yellow light fades in over 2 seconds.
+- **Armed:** Light turns red and pulses. Contact now deals 1 damage.
+- Traps can be **dodged by dashing** fully across them.
+- Traps deal repeated damage if the player stands on them (with cooldown between hits).
+- Optional light burst on damage that can wake nearby enemies.
+- Affects both players and enemies.
 
 ### Combat
-- Player has **3 HP**, enemies have **3 HP**.
+- Player has **3 HP**, enemies have **2 HP**.
 - Both player and enemies fire projectiles.
 - Bullets are triggers (no physics knockback).
 - Bullets produce a faint muzzle flash and a small echo pulse on wall impact.
 
 ### Keys & Doors
-- Collectible keys unlock corresponding locked doors to gate progression between rooms.
+- Collectible keys are placed in the level. Walking over a key picks it up and it follows the player visually.
+- The door (exit) requires the matching key. Walking onto the door with the correct key triggers a win.
+- Walking onto the door without the key shows a "You need a key" message.
+
+### Win Conditions
+- **Kill all enemies** — defeating every enemy in the level triggers a win.
+- **Reach the door with the key** — picking up the key and reaching the exit door triggers a win.
 
 ### Shadows
-- Walls block light and cast shadows via ShadowCaster2D. Dark rooms stay dark until you bring light inside. Room has a gray background.
+- Walls block light and cast shadows via ShadowCaster2D. Dark rooms stay dark until you bring light inside. Rooms have a gray background.
 
-### Death Screen
-- When the player dies, a "YOU DIED" screen appears with the option to press Space to restart.
+### Death & Win Screens
+- When the player dies, a "YOU DIED" screen appears. Press Space to restart.
+- When the player wins, a "YOU WON!" screen appears. Press Space to return to the main menu.
+- Both screens build themselves dynamically — no manual UI wiring required.
 
 ## Tech Stack
 
@@ -92,30 +109,57 @@ Assets/
   Scripts/
     LightEnergy.cs            # Unified energy pool for all abilities
     PlayerMovement.cs         # WASD movement + Shift dash (aim-direction based)
-    PlayerSlash.cs            # J key melee arc with light cone + visual arc
+    PlayerSlash.cs            # J key melee arc with light cone + visual arc + wall LOS check
     PlayerDash.cs             # Dash light trail + shadow afterimages + contact damage
     PlayerLightWave.cs        # L key room-wide light burst
     PlayerShooting.cs         # K key ranged attack with energy cost
     PlayerAmbientLight.cs     # Always-on dim glow (doesn't activate enemies)
-    PlayerHealth.cs           # Player HP + death screen trigger
-    PlayerInventory.cs        # Key collection
+    PlayerHealth.cs           # Player HP + death handling
+    PlayerInventory.cs        # Key collection (HashSet-based)
     DeathScreen.cs            # Death overlay UI + restart on Space
-    EnemyAI.cs                # Persistent light activation, chase, stun
+    GameManager.cs            # Win/death state, enemy count, dynamic win screen
+    GameUIManager.cs          # HUD for HP, energy, enemy count
+    EnemyAI.cs                # Light activation, chase, stun, speed boost
     EnemyShooting.cs          # Enemy ranged attack (respects activation + stun)
-    EnemyHealth.cs            # Enemy HP
-    Bullet.cs                 # Projectile logic + impact echo
-    Trap.cs                   # Trigger-based damage + optional light burst
+    EnemyHealth.cs            # Enemy HP + kill notification
+    EnemyProximityGlow.cs     # Proximity glow when player is near
+    EnemyHitGlow.cs           # Visual glow on enemy hit
+    Bullet.cs                 # Projectile logic + impact echo (ignores triggers)
+    Trap.cs                   # Dormant→Arming→Armed state machine, dodge via dash
+    Key.cs                    # Collectible key pickup + visual follow
+    KeyItem.cs                # Key follow behavior (floats near player after pickup)
+    Door.cs                   # Exit door, requires matching key to win
+    DoorMessageUI.cs          # "You need a key" popup message
+    FlashlightAim.cs          # Flashlight aiming (cached Camera.main)
+    CameraShake.cs            # Screen shake on impacts
+    WallShadowSetup.cs        # Auto-adds ShadowCaster2D to walls
     TimedDestroy.cs           # Expanding echo pulse light
     ImpactLightStatic.cs      # Static impact light
-    WallShadowSetup.cs        # Auto-adds ShadowCaster2D to walls
-    HealthUICounter.cs        # HUD for HP and energy
-    Key.cs                    # Collectible key pickup
-    Door.cs                   # Locked door that requires a key
+    LightFader.cs             # Generic light fade-out utility
+    HitLightFade.cs           # Hit light fade effect
+    FootprintFade.cs          # Dash footprint fade effect
+    ExplosionLight.cs         # Explosion light effect
+    WinText.cs                # Win text display
+    FinishLine.cs             # Legacy finish line (superseded by Door.cs)
+    MainMenuController.cs     # Main menu navigation
+    TutorialManager.cs        # Tutorial scene logic
   Prefabs/
     Bullet.prefab             # Player bullet (trigger collider)
     EnemyBullet.prefab        # Enemy bullet (trigger collider)
+    Enemy.prefab              # Enemy with AI, health, shooting
     ImpactEchoLight.prefab    # Light pulse on bullet wall impact
-    Trap.prefab               # Placeable trap with optional light burst
+    Trap.prefab               # Placeable trap with state machine
+    Key.prefab                # Collectible key
+    Door.prefab               # Exit door
+    HitGlow.prefab            # Enemy hit glow effect
+    EnemyGlowParticle.prefab  # Enemy proximity glow particles
+    ExplosionLight.prefab     # Explosion light effect
+    FootprintLight.prefab     # Dash trail footprint light
+    LightRevealMask.prefab    # Light reveal mask
+    Particle System.prefab    # Particle system effect
   Scenes/
-    SampleScene.unity         # Main game scene
+    GameScene.unity           # Main game scene
+    MainMenu.unity            # Main menu
+    TutorialScene.unity       # Tutorial level
+    BaseScene.unity           # Base/template scene
 ```

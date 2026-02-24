@@ -13,7 +13,7 @@ public class FinishLine : MonoBehaviour
             triggered = true;
             Debug.Log("Player reached finish line");
 
-            GameManager.Instance.PlayerWon();
+            GameManager.Instance?.PlayerWon();
         }
     }
 }

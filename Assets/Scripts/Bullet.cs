@@ -18,13 +18,8 @@ public class Bullet : MonoBehaviour
         Destroy(gameObject, 3f);
     }
 
-    // If your bullets are set to be Triggers (IsTrigger = true)
     void OnTriggerEnter2D(Collider2D other)
     {
-        // ignore sensors
-        if (other.CompareTag("EnemyRange") || other.CompareTag("LightSource"))
-            return;
-
         // Player's bullet hits enemy body
         if (CompareTag("Bullet") && other.CompareTag("Enemy"))
         {
@@ -41,7 +36,12 @@ public class Bullet : MonoBehaviour
             return;
         }
 
-        // walls / environment
+        // Ignore all trigger colliders (traps, doors, keys, light sources, etc.)
+        // Only solid non-trigger colliders (walls) should stop bullets.
+        if (other.isTrigger)
+            return;
+
+        // Walls / solid environment
         if (impactEchoPrefab != null)
             Instantiate(impactEchoPrefab, transform.position, Quaternion.identity);
 

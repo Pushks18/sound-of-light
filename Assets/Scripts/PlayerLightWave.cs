@@ -24,7 +24,7 @@ public class PlayerLightWave : MonoBehaviour
         if (cooldownTimer > 0f)
             cooldownTimer -= Time.deltaTime;
 
-        GameUIManager.Instance?.UpdateFlash(cooldownTimer > 0f ? cooldownTimer : cooldown);
+        GameUIManager.Instance?.UpdateFlash(cooldownTimer > 0f ? cooldownTimer : 0f);
 
         if (Input.GetKeyDown(KeyCode.L) && cooldownTimer <= 0f)
         {
@@ -86,6 +86,11 @@ public class LightWaveFader : MonoBehaviour
             light2D.intensity = Mathf.Lerp(startIntensity, 0f, t);
 
         if (elapsed >= duration)
+        {
+            // Disable collider before Destroy so OnTriggerExit2D fires on enemies
+            var col = GetComponent<Collider2D>();
+            if (col != null) col.enabled = false;
             Destroy(gameObject);
+        }
     }
 }

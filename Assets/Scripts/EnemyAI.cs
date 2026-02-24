@@ -12,7 +12,7 @@ public class EnemyAI : MonoBehaviour
     private Rigidbody2D rb;
 
     private bool activated = false;     // permanently activated once lit
-    private int lightCount = 0;         // how many lights currently touching
+    private bool isCurrentlyLit = false; // true while any light source overlaps
 
     private float stunTimer;
     private float markTimer;
@@ -32,7 +32,9 @@ public class EnemyAI : MonoBehaviour
         markObj.transform.localPosition = Vector3.zero;
 
         markLight = markObj.AddComponent<Light2D>();
-        markLight.lightType = Light2D.LightType.Freeform;
+        markLight.lightType = Light2D.LightType.Point;
+        markLight.pointLightOuterRadius = 1.5f;
+        markLight.pointLightInnerRadius = 0.5f;
         markLight.intensity = 0.6f;
         markLight.falloffIntensity = 0.8f;
         markLight.color = new Color(1f, 0.3f, 0.2f);
@@ -62,6 +64,8 @@ public class EnemyAI : MonoBehaviour
         if (player == null || !activated || stunTimer > 0f)
         {
             rb.linearVelocity = Vector2.zero;
+            // Reset lit flag — OnTriggerStay2D will set it again if still in light
+            isCurrentlyLit = false;
             return;
         }
 
@@ -71,8 +75,8 @@ public class EnemyAI : MonoBehaviour
         {
             Vector2 dir = (player.position - transform.position).normalized;
 
-            //  Speed boost if currently in light
-            float currentSpeed = (lightCount > 0) ? boostedSpeed : baseSpeed;
+            // Speed boost if currently in light
+            float currentSpeed = isCurrentlyLit ? boostedSpeed : baseSpeed;
 
             rb.linearVelocity = dir * currentSpeed;
         }
@@ -80,22 +84,17 @@ public class EnemyAI : MonoBehaviour
         {
             rb.linearVelocity = Vector2.zero;
         }
+
+        // Reset each physics step — OnTriggerStay2D will re-set if still in light
+        isCurrentlyLit = false;
     }
 
-    private void OnTriggerEnter2D(Collider2D other)
+    private void OnTriggerStay2D(Collider2D other)
     {
         if (other.CompareTag("LightSource"))
         {
-            lightCount++;
+            isCurrentlyLit = true;
             activated = true;   // permanently activate once lit
-        }
-    }
-
-    private void OnTriggerExit2D(Collider2D other)
-    {
-        if (other.CompareTag("LightSource"))
-        {
-            lightCount = Mathf.Max(0, lightCount - 1);
         }
     }
 
@@ -117,6 +116,6 @@ public class EnemyAI : MonoBehaviour
 
     public bool IsLit()
     {
-        return lightCount > 0;
+        return isCurrentlyLit;
     }
 }

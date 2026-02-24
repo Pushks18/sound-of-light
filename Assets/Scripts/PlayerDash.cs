@@ -171,7 +171,12 @@ public class DashTrailFader : MonoBehaviour
         }
 
         if (elapsed >= duration)
+        {
+            // Disable collider before Destroy so OnTriggerExit2D fires on enemies
+            var col = GetComponent<Collider2D>();
+            if (col != null) col.enabled = false;
             Destroy(gameObject);
+        }
     }
 }
 

@@ -2,9 +2,18 @@ using UnityEngine;
 
 public class FlashlightAim : MonoBehaviour
 {
+    private Camera mainCam;
+
+    void Start()
+    {
+        mainCam = Camera.main;
+    }
+
     void Update()
     {
-        Vector3 mousePosition = Camera.main.ScreenToWorldPoint(Input.mousePosition);
+        if (mainCam == null || transform.parent == null) return;
+
+        Vector3 mousePosition = mainCam.ScreenToWorldPoint(Input.mousePosition);
         mousePosition.z = 0f;
 
         Vector3 direction = mousePosition - transform.parent.position;

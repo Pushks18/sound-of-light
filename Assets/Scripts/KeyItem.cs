@@ -24,7 +24,7 @@ public class KeyItem : MonoBehaviour
         followTarget = playerTransform;
         isPickedUp = true;
 
-        // 关键：拾取后关闭碰撞体，防止钥匙挡住子弹或触发怪物
-        GetComponent<Collider2D>().enabled = false;
+        var col = GetComponent<Collider2D>();
+        if (col != null) col.enabled = false;
     }
 }

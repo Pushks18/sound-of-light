@@ -23,7 +23,8 @@ public class GameUIManager : MonoBehaviour
 
     void Start()
     {
-        UpdateHP(3);
+        var player = FindAnyObjectByType<PlayerHealth>();
+        UpdateHP(player != null ? player.maxHealth : 3);
         UpdateFlash(0f);
     }
 

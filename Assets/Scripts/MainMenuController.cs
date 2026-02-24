@@ -10,7 +10,7 @@ public class MainMenuController : MonoBehaviour
 public void LoadGame()
 {
     Debug.Log("Play clicked");
-    SceneManager.LoadScene("GameScene");
+    SceneManager.LoadScene("BaseScene");
 }
     // public void LoadGame()
     // {

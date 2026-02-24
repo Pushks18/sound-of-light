@@ -8,6 +8,7 @@ public class EnemyHealth : MonoBehaviour
     public static System.Action OnEnemyKilled;
 
     [HideInInspector] public int currentHealth;
+    private bool isDead = false;
 
     void Awake()
     {
@@ -16,7 +17,7 @@ public class EnemyHealth : MonoBehaviour
 
     public void TakeDamage(int dmg)
     {
-            Debug.Log("Enemy took damage");
+        if (isDead) return;
 
         currentHealth -= dmg;
 
@@ -32,22 +33,12 @@ public class EnemyHealth : MonoBehaviour
     }
 
     void Die()
-{
-    if (GameManager.Instance == null)
-{
-    Debug.LogError("GameManager.Instance is NULL");
-}
-else
-{
-    Debug.Log("GameManager.Instance found");
-}
+    {
+        if (isDead) return;
+        isDead = true;
 
-    OnEnemyKilled?.Invoke();
-
-    GameManager.Instance?.EnemyKilled();
-
-    Destroy(gameObject);
-
-    Debug.Log("Enemy died");
-}
+        OnEnemyKilled?.Invoke();
+        GameManager.Instance?.EnemyKilled();
+        Destroy(gameObject);
+    }
 }

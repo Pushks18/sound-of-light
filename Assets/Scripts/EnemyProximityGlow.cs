@@ -12,7 +12,7 @@ public class EnemyProximityGlow : MonoBehaviour
     void Start()
     {
         enemyLight = GetComponent<Light2D>();
-        player = GameObject.FindGameObjectWithTag("Player").transform;
+        player = GameObject.FindGameObjectWithTag("Player")?.transform;
     }
 
     void Update()

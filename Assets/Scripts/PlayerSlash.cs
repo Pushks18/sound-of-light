@@ -179,9 +179,29 @@ public class PlayerSlash : MonoBehaviour
                     continue;
             }
 
+            // Line-of-sight check — skip if a wall is blocking
+            if (distance > 0.1f && IsBlockedByWall((Vector2)transform.position, (Vector2)health.transform.position, health.gameObject))
+                continue;
+
             health.TakeDamage(slashDamage);
-            Debug.Log($"Slash hit {health.gameObject.name} for {slashDamage} dmg (HP: {health.currentHealth})");
         }
+    }
+
+    bool IsBlockedByWall(Vector2 origin, Vector2 target, GameObject targetObj)
+    {
+        Vector2 dir = target - origin;
+        float dist = dir.magnitude;
+        RaycastHit2D[] hits = Physics2D.RaycastAll(origin, dir.normalized, dist);
+
+        foreach (var hit in hits)
+        {
+            if (hit.collider.isTrigger) continue;
+            if (hit.collider.gameObject == gameObject) continue;   // skip player
+            if (hit.collider.gameObject == targetObj) continue;    // skip the enemy
+            // A solid non-trigger collider is between player and enemy — wall
+            return true;
+        }
+        return false;
     }
 }
 
@@ -220,6 +240,11 @@ public class SlashFader : MonoBehaviour
         }
 
         if (elapsed >= duration)
+        {
+            // Disable collider before Destroy so OnTriggerExit2D fires on enemies
+            var col = GetComponent<Collider2D>();
+            if (col != null) col.enabled = false;
             Destroy(gameObject);
+        }
     }
 }

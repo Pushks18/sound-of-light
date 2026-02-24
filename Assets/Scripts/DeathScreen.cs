@@ -2,6 +2,7 @@ using UnityEngine;
 using UnityEngine.SceneManagement;
 using TMPro;
 using UnityEngine.UI;
+using System.Linq;
 
 public class DeathScreen : MonoBehaviour
 {
@@ -31,7 +32,11 @@ public class DeathScreen : MonoBehaviour
         titleRect.anchorMax = new Vector2(0.5f, 0.55f);
         titleRect.anchoredPosition = Vector2.zero;
         titleRect.sizeDelta = new Vector2(600f, 100f);
+        // Load default TMP font asset
+        var defaultFont = Resources.FindObjectsOfTypeAll<TMP_FontAsset>().FirstOrDefault();
+
         var titleText = titleObj.AddComponent<TextMeshProUGUI>();
+        if (defaultFont != null) titleText.font = defaultFont;
         titleText.text = "YOU DIED";
         titleText.fontSize = 72;
         titleText.color = new Color(0.9f, 0.2f, 0.2f);
@@ -46,6 +51,7 @@ public class DeathScreen : MonoBehaviour
         promptRect.anchoredPosition = Vector2.zero;
         promptRect.sizeDelta = new Vector2(600f, 60f);
         var promptText = promptObj.AddComponent<TextMeshProUGUI>();
+        if (defaultFont != null) promptText.font = defaultFont;
         promptText.text = "Press Space to play again";
         promptText.fontSize = 32;
         promptText.color = Color.white;
