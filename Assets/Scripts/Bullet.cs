@@ -1,9 +1,15 @@
 using UnityEngine;
+using UnityEngine.Rendering.Universal;
 
 public class Bullet : MonoBehaviour
 {
     public float speed = 15f;
     public GameObject impactEchoPrefab;
+
+    [Header("Player Bullet Light")]
+    public float bulletLightRadius = 1.2f;
+    public float bulletLightIntensity = 0.8f;
+    public Color bulletLightColor = new Color(1f, 0.85f, 0.5f);
 
     private Rigidbody2D rb;
 
@@ -12,8 +18,43 @@ public class Bullet : MonoBehaviour
         rb = GetComponent<Rigidbody2D>();
         rb.linearVelocity = transform.up * speed;
 
-        // optional safety: ignore the shooter if you want
-        // Physics2D.IgnoreCollision(...)
+        // Player bullets emit light and activate enemies
+        if (CompareTag("Bullet"))
+        {
+            // Make the bullet sprite always visible (unlit) and larger
+            var sr = GetComponent<SpriteRenderer>();
+            if (sr != null)
+            {
+                sr.material = new Material(Shader.Find("Sprites/Default"));
+                sr.color = bulletLightColor;
+                sr.sortingOrder = 10;
+                transform.localScale = new Vector3(0.25f, 0.25f, 1f);
+            }
+
+            // Attached Light2D so the bullet illuminates surroundings
+            var light = gameObject.AddComponent<Light2D>();
+            light.lightType = Light2D.LightType.Point;
+            light.color = bulletLightColor;
+            light.intensity = bulletLightIntensity;
+            light.pointLightOuterRadius = bulletLightRadius;
+            light.pointLightInnerRadius = bulletLightRadius * 0.2f;
+            light.pointLightOuterAngle = 360f;
+            light.pointLightInnerAngle = 360f;
+            light.shadowsEnabled = false;
+
+            // Light source trigger so enemies detect the travelling light.
+            // Needs its own Rigidbody2D so its collider doesn't route
+            // OnTriggerEnter2D callbacks to the parent bullet.
+            var lightTrigger = new GameObject("BulletLightTrigger");
+            lightTrigger.transform.SetParent(transform, false);
+            lightTrigger.transform.localPosition = Vector3.zero;
+            lightTrigger.tag = "LightSource";
+            var triggerRb = lightTrigger.AddComponent<Rigidbody2D>();
+            triggerRb.bodyType = RigidbodyType2D.Kinematic;
+            var triggerCol = lightTrigger.AddComponent<CircleCollider2D>();
+            triggerCol.isTrigger = true;
+            triggerCol.radius = bulletLightRadius;
+        }
 
         Destroy(gameObject, 3f);
     }
@@ -37,8 +78,15 @@ public class Bullet : MonoBehaviour
         }
 
         // Ignore all trigger colliders (traps, doors, keys, light sources, etc.)
-        // Only solid non-trigger colliders (walls) should stop bullets.
         if (other.isTrigger)
+            return;
+
+        // Player bullets must ignore the player's own solid collider
+        if (CompareTag("Bullet") && other.CompareTag("Player"))
+            return;
+
+        // Enemy bullets must ignore enemy solid colliders
+        if (CompareTag("EnemyBullet") && other.CompareTag("Enemy"))
             return;
 
         // Walls / solid environment

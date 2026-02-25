@@ -44,6 +44,6 @@ public class GameUIManager : MonoBehaviour
     public void UpdateFlash(float currentFlash)
     {
         if (flashText != null)
-            flashText.text = "Flash: " + currentFlash.ToString("F1") + "s / 5s";
+            flashText.text = "Energy: " + currentFlash.ToString("F1") + "s / 20s";
     }
 }

@@ -31,15 +31,22 @@ public class PlayerShooting : MonoBehaviour
     void Shoot()
     {
         if (bulletPrefab == null || firePoint == null || playerMovement == null)
+        {
+            Debug.Log($"[Shoot] Blocked: bulletPrefab={bulletPrefab != null}, firePoint={firePoint != null}, playerMovement={playerMovement != null}");
             return;
+        }
 
         if (lightEnergy != null && !lightEnergy.TrySpend(energyCost))
+        {
+            Debug.Log($"[Shoot] Not enough energy. Current: {lightEnergy.CurrentEnergy}, Cost: {energyCost}");
             return;
+        }
 
         Vector2 direction = playerMovement.AimDirection;
         float angle = Mathf.Atan2(direction.y, direction.x) * Mathf.Rad2Deg - 90f;
 
-        Instantiate(bulletPrefab, firePoint.position, Quaternion.Euler(0, 0, angle));
+        var bullet = Instantiate(bulletPrefab, firePoint.position, Quaternion.Euler(0, 0, angle));
+        Debug.Log($"[Shoot] Bullet fired at {firePoint.position}, direction={direction}, angle={angle}");
 
         if (muzzleFlashLight != null)
         {
