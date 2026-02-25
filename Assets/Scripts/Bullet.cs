@@ -18,6 +18,28 @@ public class Bullet : MonoBehaviour
         rb = GetComponent<Rigidbody2D>();
         rb.linearVelocity = transform.up * speed;
 
+        // Enemy bullets emit a faint red light
+        if (CompareTag("EnemyBullet"))
+        {
+            var sr = GetComponent<SpriteRenderer>();
+            if (sr != null)
+            {
+                sr.material = new Material(Shader.Find("Sprites/Default"));
+                sr.color = new Color(1f, 0.3f, 0.2f);
+                sr.sortingOrder = 10;
+            }
+
+            var light = gameObject.AddComponent<Light2D>();
+            light.lightType = Light2D.LightType.Point;
+            light.color = new Color(1f, 0.3f, 0.2f);
+            light.intensity = 0.5f;
+            light.pointLightOuterRadius = 0.8f;
+            light.pointLightInnerRadius = 0.15f;
+            light.pointLightOuterAngle = 360f;
+            light.pointLightInnerAngle = 360f;
+            light.shadowsEnabled = false;
+        }
+
         // Player bullets emit light and activate enemies
         if (CompareTag("Bullet"))
         {

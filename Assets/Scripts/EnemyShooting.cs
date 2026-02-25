@@ -5,18 +5,19 @@ public class EnemyShooting : MonoBehaviour
     public GameObject bulletPrefab;
     public Transform firePoint;
 
-    public float shootRange = 3f;
-    public float fireCooldown = 0.5f;
+    public float shootRange = 10f;
+    public float fireCooldown = 1.2f;
 
     private Transform player;
     private float fireTimer;
     private EnemyAI enemyAI;
+    private bool hasFiredFirst = false;
 
     void Start()
     {
         player = GameObject.FindGameObjectWithTag("Player")?.transform;
         enemyAI = GetComponent<EnemyAI>();
-        fireTimer = fireCooldown;
+        fireTimer = 0f; // ready to fire immediately
     }
 
     void Update()
@@ -27,20 +28,14 @@ public class EnemyShooting : MonoBehaviour
         if (!enemyAI.IsActivated || enemyAI.IsStunned())
             return;
 
+        // Always count down, so enemies fire immediately when player enters range
+        fireTimer -= Time.deltaTime;
+
         float distance = Vector2.Distance(transform.position, player.position);
 
-        if (distance <= shootRange)
+        if (distance <= shootRange && fireTimer <= 0f)
         {
-            fireTimer -= Time.deltaTime;
-
-            if (fireTimer <= 0f)
-            {
-                Shoot();
-                fireTimer = fireCooldown;
-            }
-        }
-        else
-        {
+            Shoot();
             fireTimer = fireCooldown;
         }
     }

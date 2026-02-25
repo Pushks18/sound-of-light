@@ -87,6 +87,10 @@ public class PlayerSlash : MonoBehaviour
         var fader = slashObj.AddComponent<SlashFader>();
         fader.duration = slashDuration;
 
+        // Continuous bullet deflection for the slash's lifetime
+        var deflector = slashObj.AddComponent<SlashBulletDeflector>();
+        deflector.owner = this;
+
         // Damage enemies in arc
         DamageEnemiesInArc(aim);
     }
@@ -187,6 +191,56 @@ public class PlayerSlash : MonoBehaviour
         }
     }
 
+    public void SpawnDeflectSpark(Vector3 position)
+    {
+        var sparkObj = new GameObject("DeflectSpark");
+        sparkObj.transform.position = position;
+
+        // Bright flash light
+        var light = sparkObj.AddComponent<Light2D>();
+        light.lightType = Light2D.LightType.Point;
+        light.color = new Color(0.8f, 0.9f, 1f);
+        light.intensity = 2f;
+        light.pointLightOuterRadius = 1.5f;
+        light.pointLightInnerRadius = 0.3f;
+        light.pointLightOuterAngle = 360f;
+        light.pointLightInnerAngle = 360f;
+        light.shadowsEnabled = false;
+
+        // Small visible sprite (unlit so it's always visible)
+        var sr = sparkObj.AddComponent<SpriteRenderer>();
+        sr.sprite = CreateCircleSprite();
+        sr.material = new Material(Shader.Find("Sprites/Default"));
+        sr.color = new Color(0.8f, 0.9f, 1f, 0.9f);
+        sr.sortingOrder = 12;
+        sparkObj.transform.localScale = new Vector3(0.3f, 0.3f, 1f);
+
+        // Fade out and destroy
+        var fader = sparkObj.AddComponent<DeflectSparkFader>();
+        fader.duration = 0.2f;
+    }
+
+    Sprite CreateCircleSprite()
+    {
+        int size = 32;
+        var tex = new Texture2D(size, size, TextureFormat.RGBA32, false);
+        float center = size * 0.5f;
+        float radius = center - 1f;
+
+        for (int y = 0; y < size; y++)
+        {
+            for (int x = 0; x < size; x++)
+            {
+                float dist = Vector2.Distance(new Vector2(x, y), new Vector2(center, center));
+                float a = Mathf.Clamp01(1f - (dist / radius));
+                tex.SetPixel(x, y, new Color(1f, 1f, 1f, a * a));
+            }
+        }
+
+        tex.Apply();
+        return Sprite.Create(tex, new Rect(0, 0, size, size), new Vector2(0.5f, 0.5f), size);
+    }
+
     bool IsBlockedByWall(Vector2 origin, Vector2 target, GameObject targetObj)
     {
         Vector2 dir = target - origin;
@@ -246,5 +300,59 @@ public class SlashFader : MonoBehaviour
             if (col != null) col.enabled = false;
             Destroy(gameObject);
         }
+    }
+}
+
+public class SlashBulletDeflector : MonoBehaviour
+{
+    [HideInInspector] public PlayerSlash owner;
+
+    void OnTriggerEnter2D(Collider2D other)
+    {
+        // The slash's PolygonCollider2D overlaps with an enemy bullet
+        var bullet = other.GetComponent<Bullet>();
+        if (bullet != null && other.CompareTag("EnemyBullet"))
+        {
+            if (owner != null)
+                owner.SpawnDeflectSpark(other.transform.position);
+            Destroy(other.gameObject);
+        }
+    }
+}
+
+public class DeflectSparkFader : MonoBehaviour
+{
+    [HideInInspector] public float duration = 0.2f;
+    private float elapsed;
+    private Light2D light2D;
+    private SpriteRenderer sr;
+
+    void Start()
+    {
+        light2D = GetComponent<Light2D>();
+        sr = GetComponent<SpriteRenderer>();
+    }
+
+    void Update()
+    {
+        elapsed += Time.deltaTime;
+        float t = 1f - (elapsed / duration);
+
+        if (light2D != null)
+            light2D.intensity = 2f * t;
+
+        if (sr != null)
+        {
+            var c = sr.color;
+            c.a = t;
+            sr.color = c;
+        }
+
+        // Scale up slightly as it fades (expanding spark)
+        float scale = Mathf.Lerp(0.3f, 0.6f, elapsed / duration);
+        transform.localScale = new Vector3(scale, scale, 1f);
+
+        if (elapsed >= duration)
+            Destroy(gameObject);
     }
 }

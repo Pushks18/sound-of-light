@@ -17,15 +17,18 @@ public class PlayerDash : MonoBehaviour
     public float shadowSpawnInterval = 0.04f;
 
     [Header("Contact Damage")]
-    public int contactDamage = 1;
     public float stunDuration = 0.2f;
-    public float contactRadius = 0.6f;
+
+    // Not serialized — avoids Unity overriding with old saved values
+    private const int contactDamage = 2;
+    private const float contactRadius = 2f;
 
     private PlayerMovement playerMovement;
     private SpriteRenderer playerSprite;
     private float trailSpawnTimer;
     private float shadowSpawnTimer;
     private HashSet<int> hitEnemiesThisDash;
+    private Vector3 lastDashPos;
 
     void Start()
     {
@@ -48,6 +51,10 @@ public class PlayerDash : MonoBehaviour
         hitEnemiesThisDash.Clear();
         trailSpawnTimer = 0f;
         shadowSpawnTimer = 0f;
+        lastDashPos = transform.position;
+
+        // Immediately check for enemies at the start position
+        CheckContactDamage();
     }
 
     void Update()
@@ -122,26 +129,61 @@ public class PlayerDash : MonoBehaviour
 
     void CheckContactDamage()
     {
-        Collider2D[] hits = Physics2D.OverlapCircleAll(transform.position, contactRadius);
-        foreach (var hit in hits)
+        Vector2 currentPos = transform.position;
+        Vector2 prevPos = lastDashPos;
+
+        // Check all enemies by direct distance (bypasses layer/physics issues)
+        var enemies = FindObjectsByType<EnemyHealth>(FindObjectsSortMode.None);
+        foreach (var enemy in enemies)
         {
-            if (!hit.CompareTag("Enemy"))
-                continue;
+            if (enemy == null) continue;
+            int id = enemy.gameObject.GetInstanceID();
+            if (hitEnemiesThisDash.Contains(id)) continue;
 
-            int id = hit.gameObject.GetInstanceID();
-            if (hitEnemiesThisDash.Contains(id))
-                continue;
+            Vector2 enemyPos = enemy.transform.position;
 
-            hitEnemiesThisDash.Add(id);
+            // Check distance to current position OR closest point on dash path
+            float dist = DistToSegment(enemyPos, prevPos, currentPos);
+            Debug.Log($"[Dash] Enemy {enemy.name} dist={dist:F2}, radius={contactRadius}");
+            if (dist <= contactRadius)
+            {
+                Debug.Log($"[Dash] HIT {enemy.name} for {contactDamage} damage!");
+                hitEnemiesThisDash.Add(id);
+                enemy.TakeDamage(contactDamage);
 
-            var health = hit.GetComponent<EnemyHealth>();
-            if (health != null)
-                health.TakeDamage(contactDamage);
-
-            var ai = hit.GetComponent<EnemyAI>();
-            if (ai != null)
-                ai.Stun(stunDuration);
+                var ai = enemy.GetComponent<EnemyAI>();
+                if (ai != null) ai.Stun(stunDuration);
+            }
         }
+
+        // Check all enemy bullets by direct distance
+        var bullets = FindObjectsByType<Bullet>(FindObjectsSortMode.None);
+        foreach (var bullet in bullets)
+        {
+            if (bullet == null || !bullet.CompareTag("EnemyBullet")) continue;
+
+            Vector2 bulletPos = bullet.transform.position;
+            float dist = DistToSegment(bulletPos, prevPos, currentPos);
+            if (dist <= contactRadius)
+                Destroy(bullet.gameObject);
+        }
+
+        lastDashPos = transform.position;
+    }
+
+    // Shortest distance from point P to line segment AB
+    float DistToSegment(Vector2 p, Vector2 a, Vector2 b)
+    {
+        Vector2 ab = b - a;
+        float sqrLen = ab.sqrMagnitude;
+
+        // a and b are the same point
+        if (sqrLen < 0.0001f)
+            return Vector2.Distance(p, a);
+
+        float t = Mathf.Clamp01(Vector2.Dot(p - a, ab) / sqrLen);
+        Vector2 closest = a + t * ab;
+        return Vector2.Distance(p, closest);
     }
 }
 

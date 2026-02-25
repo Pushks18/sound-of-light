@@ -11,10 +11,10 @@ The world is dark. You have no flashlight — only your combat abilities produce
 | Input | Action |
 |---|---|
 | WASD | Move + Aim (8 directions, last direction persists) |
-| J | Slash — 120-degree melee arc with light cone |
-| K | Shoot — ranged bullet, costs 1 energy |
-| Left Shift | Dash — fast burst with light trail + contact damage |
-| L | Light Wave — room-wide light burst for 1 second |
+| J | Slash — 120-degree melee arc, deflects enemy bullets |
+| K | Shoot — ranged bullet with travelling light |
+| Left Shift | Dash — fast burst, deals 2 damage, destroys bullets |
+| L | Light Wave — room-wide light burst |
 
 ## Core Mechanics
 
@@ -27,27 +27,29 @@ The world is dark. You have no flashlight — only your combat abilities produce
 - 120-degree melee arc in your aim direction.
 - Produces a visible light cone and a semi-transparent arc showing exact range and angle.
 - Damages enemies caught in the arc (2 damage per hit). Line-of-sight check prevents damage through walls.
+- **Deflects enemy bullets** — any enemy bullet entering the slash arc during its duration is destroyed with a blue-white spark effect.
 - Cost: 3 energy, cooldown: 0.15 seconds.
 
 ### Shoot (K)
 - Fires a bullet in your aim direction.
-- Produces a brief muzzle flash.
-- Bullets pass through triggers (traps, doors, keys) and only stop on solid walls.
+- **Bullets emit a warm yellow light** (unlit sprite, always visible) that illuminates surroundings and activates enemies as they travel.
+- Bullets pass through triggers (traps, doors, keys) and only stop on solid walls or enemies.
 - Cost: 1 energy per shot.
 
 ### Dash (Left Shift)
 - Fast burst of movement in your aim direction (works while stationary).
 - Leaves a trail of fading light orbs that shrink and dim over time.
 - Spawns shadow afterimages of the player that fade to transparent.
-- Deals 1 damage + 0.2 second stun to enemies on contact (once per enemy per dash).
-- Dodges traps if dashing fully across them.
+- **Deals 2 damage** + 0.2 second stun to enemies on contact (once per enemy per dash). Uses line-segment sweep detection to catch enemies along the entire dash path.
+- **Destroys enemy bullets** on contact during the dash.
+- **Dodges traps** if dashing fully across them.
 - Cost: 3 energy, cooldown: 1 second.
 
 ### Light Wave (L)
 - Emits a large 360-degree light burst (radius 12) centered on the player.
-- Fades over 2.5 seconds, activating all enemies in the room.
+- Fades over 5 seconds, activating all enemies in the room.
 - Use it to reveal an entire room — at the cost of waking everything up.
-- Cost: 10 energy, cooldown: 3 seconds.
+- Cost: 10 energy, cooldown: 20 seconds. Cooldown displayed on HUD as "Energy: Xs / 20s".
 
 ### Ambient Light
 - A small, always-on dim glow around the player (radius 1.5, intensity 0.4).
@@ -58,8 +60,11 @@ The world is dark. You have no flashlight — only your combat abilities produce
 - **Once activated by any light source, enemies stay active permanently** — they chase at full speed even after the light is gone.
 - Enemies move faster while actively in a light source (boosted speed).
 - This is the central design tension: **every attack you make has permanent consequences**. Light reveals threats but also creates them.
+- **Enemies shoot immediately on activation** (shoot range: 10 units, cooldown: 1.2 seconds).
+- **Enemy bullets emit a faint red light** — always visible in the dark.
+- Enemies **fade in opacity as they take damage** (quadratic curve: full → faded → transparent death).
+- On death, enemies **fade out over 0.3 seconds** instead of popping out.
 - Stunned enemies can't move or shoot for the stun duration.
-- Enemies shoot back when activated, not stunned, and within range.
 - Enemies glow briefly when hit (mark light).
 - Enemies have a proximity glow when the player comes close.
 
@@ -76,8 +81,12 @@ The world is dark. You have no flashlight — only your combat abilities produce
 ### Combat
 - Player has **3 HP**, enemies have **2 HP**.
 - Both player and enemies fire projectiles.
+- Player bullets: warm yellow light, always visible, illuminate surroundings.
+- Enemy bullets: faint red light, always visible in the dark.
 - Bullets are triggers (no physics knockback).
 - Bullets produce a faint muzzle flash and a small echo pulse on wall impact.
+- **Slash deflects enemy bullets** with a spark visual effect.
+- **Dashing destroys enemy bullets** on contact.
 
 ### Keys & Doors
 - Collectible keys are placed in the level. Walking over a key picks it up and it follows the player visually.
@@ -109,9 +118,9 @@ Assets/
   Scripts/
     LightEnergy.cs            # Unified energy pool for all abilities
     PlayerMovement.cs         # WASD movement + Shift dash (aim-direction based)
-    PlayerSlash.cs            # J key melee arc with light cone + visual arc + wall LOS check
-    PlayerDash.cs             # Dash light trail + shadow afterimages + contact damage
-    PlayerLightWave.cs        # L key room-wide light burst
+    PlayerSlash.cs            # J key melee arc + light cone + wall LOS + bullet deflection
+    PlayerDash.cs             # Dash light trail + afterimages + 2 damage + bullet destroy
+    PlayerLightWave.cs        # L key room-wide light burst (20s cooldown)
     PlayerShooting.cs         # K key ranged attack with energy cost
     PlayerAmbientLight.cs     # Always-on dim glow (doesn't activate enemies)
     PlayerHealth.cs           # Player HP + death handling
@@ -120,11 +129,11 @@ Assets/
     GameManager.cs            # Win/death state, enemy count, dynamic win screen
     GameUIManager.cs          # HUD for HP, energy, enemy count
     EnemyAI.cs                # Light activation, chase, stun, speed boost
-    EnemyShooting.cs          # Enemy ranged attack (respects activation + stun)
-    EnemyHealth.cs            # Enemy HP + kill notification
+    EnemyShooting.cs          # Enemy ranged attack (fires on activation, 10 range)
+    EnemyHealth.cs            # Enemy HP + opacity fade + death fade-out
     EnemyProximityGlow.cs     # Proximity glow when player is near
     EnemyHitGlow.cs           # Visual glow on enemy hit
-    Bullet.cs                 # Projectile logic + impact echo (ignores triggers)
+    Bullet.cs                 # Projectile + light emission (yellow player / red enemy)
     Trap.cs                   # Dormant→Arming→Armed state machine, dodge via dash
     Key.cs                    # Collectible key pickup + visual follow
     KeyItem.cs                # Key follow behavior (floats near player after pickup)
@@ -144,9 +153,9 @@ Assets/
     MainMenuController.cs     # Main menu navigation
     TutorialManager.cs        # Tutorial scene logic
   Prefabs/
-    Bullet.prefab             # Player bullet (trigger collider)
-    EnemyBullet.prefab        # Enemy bullet (trigger collider)
-    Enemy.prefab              # Enemy with AI, health, shooting
+    Bullet.prefab             # Player bullet (yellow light, unlit sprite)
+    EnemyBullet.prefab        # Enemy bullet (red light, unlit sprite)
+    Enemy.prefab              # Enemy with AI, health, shooting, opacity fade
     ImpactEchoLight.prefab    # Light pulse on bullet wall impact
     Trap.prefab               # Placeable trap with state machine
     Key.prefab                # Collectible key
