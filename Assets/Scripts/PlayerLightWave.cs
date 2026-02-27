@@ -28,10 +28,16 @@ public class PlayerLightWave : MonoBehaviour
 
         if (Input.GetKeyDown(KeyCode.L) && cooldownTimer <= 0f)
         {
-            if (lightEnergy != null && lightEnergy.TrySpend(energyCost))
+            // Check flash count
+            if (PlayerAmmo.Instance != null && !PlayerAmmo.Instance.TrySpendFlash())
+            {
+                Debug.Log("[Flash] No flashes remaining!");
+            }
+            else if (lightEnergy != null && lightEnergy.TrySpend(energyCost))
             {
                 EmitLightWave();
                 cooldownTimer = cooldown;
+                StatusHUD.Instance?.StartFlashCooldown(cooldown);
             }
         }
     }

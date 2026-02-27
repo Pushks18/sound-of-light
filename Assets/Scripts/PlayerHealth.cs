@@ -1,21 +1,34 @@
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
 public class PlayerHealth : MonoBehaviour
 {
     public int maxHealth = 3;
     [HideInInspector] public int currentHealth;
+
     void Awake()
     {
         currentHealth = maxHealth;
+        // Initialise HUD with max HP
+        StatusHUD.Instance?.UpdateHP(currentHealth, maxHealth);
     }
 
     public void TakeDamage(int dmg)
     {
-        if (currentHealth <= 0) return; // already dead
-
         currentHealth -= dmg;
-        if (currentHealth < 0) currentHealth = 0;
+
+        // 🔥 Tutorial safety: never go below 1 HP
+        if (SceneManager.GetActiveScene().name == "TutorialScene")
+        {
+            if (currentHealth < 1)
+            {
+                currentHealth = 1;
+            }
+        }
+
         GameUIManager.Instance?.UpdateHP(currentHealth);
+        StatusHUD.Instance?.UpdateHP(currentHealth, maxHealth);
+
         if (currentHealth <= 0)
         {
             Die();
@@ -24,19 +37,19 @@ public class PlayerHealth : MonoBehaviour
 
     void Die()
     {
-        // Notify GameManager so it stops processing (e.g. prevents post-death wins)
         GameManager.Instance?.PlayerDied();
 
         var deathScreen = FindAnyObjectByType<DeathScreen>();
         if (deathScreen != null)
         {
             deathScreen.Show();
-            // Disable player visuals and input without deactivating the
-            // GameObject, so the child camera keeps rendering.
+
             var sr = GetComponent<SpriteRenderer>();
             if (sr != null) sr.enabled = false;
+
             var col = GetComponent<Collider2D>();
             if (col != null) col.enabled = false;
+
             var rb = GetComponent<Rigidbody2D>();
             if (rb != null) rb.linearVelocity = Vector2.zero;
 
@@ -44,6 +57,7 @@ public class PlayerHealth : MonoBehaviour
             {
                 if (mb != this) mb.enabled = false;
             }
+
             enabled = false;
         }
         else

@@ -36,6 +36,13 @@ public class PlayerShooting : MonoBehaviour
             return;
         }
 
+        // Check ammo
+        if (PlayerAmmo.Instance != null && !PlayerAmmo.Instance.TrySpendBullet())
+        {
+            Debug.Log("[Shoot] Out of ammo!");
+            return;
+        }
+
         if (lightEnergy != null && !lightEnergy.TrySpend(energyCost))
         {
             Debug.Log($"[Shoot] Not enough energy. Current: {lightEnergy.CurrentEnergy}, Cost: {energyCost}");

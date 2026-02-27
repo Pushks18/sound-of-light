@@ -11,11 +11,15 @@ public class EnemyHealth : MonoBehaviour
     [HideInInspector] public int currentHealth;
     private bool isDead = false;
     private SpriteRenderer sr;
+    private EnemyHealthBar healthBar;
 
     void Awake()
     {
         currentHealth = maxHealth;
         sr = GetComponent<SpriteRenderer>();
+
+        // Attach a mini health bar above this enemy
+        healthBar = EnemyHealthBar.AttachTo(gameObject, maxHealth);
     }
 
     public void TakeDamage(int dmg)
@@ -24,6 +28,12 @@ public class EnemyHealth : MonoBehaviour
 
         currentHealth -= dmg;
         if (currentHealth < 0) currentHealth = 0;
+
+        // Floating damage number above the enemy
+        DamageNumber.Spawn(dmg, transform.position);
+
+        // Update health bar
+        healthBar?.SetFill(currentHealth, maxHealth);
 
         if (hitGlowPrefab != null)
         {

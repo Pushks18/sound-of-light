@@ -42,6 +42,7 @@ public class GameManager : MonoBehaviour
     {
         yield return null; // wait one frame
         GameUIManager.Instance?.UpdateEnemyCount(enemyCount);
+        StatusHUD.Instance?.UpdateEnemies(enemyCount);
     }
 
     void Update()
@@ -60,6 +61,7 @@ public class GameManager : MonoBehaviour
         enemyCount--;
 
         GameUIManager.Instance?.UpdateEnemyCount(enemyCount);
+        StatusHUD.Instance?.UpdateEnemies(enemyCount);
 
         if (enemyCount <= 0)
         {

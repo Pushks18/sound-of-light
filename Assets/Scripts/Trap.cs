@@ -12,6 +12,9 @@ public class Trap : MonoBehaviour
     public bool affectsPlayer = true;
     public bool affectsEnemies = true;
 
+    [Tooltip("If true, the trap starts Armed immediately without needing a light source to reveal it.")]
+    public bool startArmed = false;
+
     [Header("Light Burst on Hit")]
     public bool emitLightOnHit = true;
     public float burstLightRadius = 3f;
@@ -41,6 +44,12 @@ public class Trap : MonoBehaviour
         {
             rb = gameObject.AddComponent<Rigidbody2D>();
             rb.bodyType = RigidbodyType2D.Kinematic;
+        }
+
+        // Auto-arm if flagged (e.g. Tutorial scene traps that must always be active)
+        if (startArmed)
+        {
+            state = State.Armed;
         }
     }
 

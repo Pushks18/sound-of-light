@@ -49,7 +49,12 @@ public class PlayerMovement : MonoBehaviour
 
         if (Input.GetKeyDown(KeyCode.LeftShift) && dashCooldownTimer <= 0f)
         {
-            if (lightEnergy == null || lightEnergy.TrySpend(dashEnergyCost))
+            // Check dash count
+            if (PlayerAmmo.Instance != null && !PlayerAmmo.Instance.TrySpendDash())
+            {
+                // no dashes left — don't proceed
+            }
+            else if (lightEnergy == null || lightEnergy.TrySpend(dashEnergyCost))
             {
                 dashDirection = aimDirection;
                 dashTimer = dashDuration;
