@@ -10,13 +10,9 @@ public class MainMenuController : MonoBehaviour
 public void LoadGame()
 {
     Debug.Log("Play clicked");
-    SceneManager.LoadScene("BaseScene");
+    SceneManager.LoadScene("GameScene");
 }
-    // public void LoadGame()
-    // {
-        
-    //     SceneManager.LoadScene("GameScene");
-    // }
+
 
     public void QuitGame()
     {
