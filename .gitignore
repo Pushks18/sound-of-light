@@ -10,6 +10,8 @@
 # MemoryCaptures
 [Mm]emoryCaptures/
 
+.claude/
+
 # Rider / VS / VSCode
 .idea/
 .vscode/
@@ -17,3 +19,4 @@
 
 # macOS
 .DS_Store
+
