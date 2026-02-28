@@ -5,6 +5,7 @@ public class EnemyHealth : MonoBehaviour
 {
     public int maxHealth = 2;
     public GameObject hitGlowPrefab;
+    public float healthBarDamageRevealSeconds = 2f;
 
     public static System.Action OnEnemyKilled;
 
@@ -12,14 +13,36 @@ public class EnemyHealth : MonoBehaviour
     private bool isDead = false;
     private SpriteRenderer sr;
     private EnemyHealthBar healthBar;
+    private EnemyAI ai;
+    private float damageRevealTimer = 0f;
+    private float litBufferTimer = 0f;
+    private const float LitBufferSeconds = 0.12f;
 
     void Awake()
     {
         currentHealth = maxHealth;
         sr = GetComponent<SpriteRenderer>();
+        ai = GetComponent<EnemyAI>();
 
         // Attach a mini health bar above this enemy
         healthBar = EnemyHealthBar.AttachTo(gameObject, maxHealth);
+        healthBar?.SetVisible(false, true);
+    }
+
+    void Update()
+    {
+        if (isDead || healthBar == null) return;
+
+        if (damageRevealTimer > 0f)
+            damageRevealTimer -= Time.deltaTime;
+
+        if (ai != null && ai.IsLit())
+            litBufferTimer = LitBufferSeconds;
+        else if (litBufferTimer > 0f)
+            litBufferTimer -= Time.deltaTime;
+
+        bool shouldShowBar = damageRevealTimer > 0f || litBufferTimer > 0f;
+        healthBar.SetVisible(shouldShowBar);
     }
 
     public void TakeDamage(int dmg)
@@ -34,6 +57,7 @@ public class EnemyHealth : MonoBehaviour
 
         // Update health bar
         healthBar?.SetFill(currentHealth, maxHealth);
+        damageRevealTimer = healthBarDamageRevealSeconds;
 
         if (hitGlowPrefab != null)
         {

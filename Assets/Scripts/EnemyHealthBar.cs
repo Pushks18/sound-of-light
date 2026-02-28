@@ -21,9 +21,14 @@ public class EnemyHealthBar : MonoBehaviour
     private static readonly Color LowColor  = new Color(1f,   0.2f,  0.1f,  1f);  // red
 
     // ── Internal refs ─────────────────────────────────────────────────────────
+    private SpriteRenderer bgSR;
     private SpriteRenderer fillSR;
     private Transform      fillTransform;
-    private int            cachedMax;
+    private float          currentAlpha;
+    private float          targetAlpha;
+
+    private const float FadeInSpeed  = 8f;
+    private const float FadeOutSpeed = 4f;
 
     // ─────────────────────────────────────────────────────────────────────────────
     /// <summary>Creates and attaches a health bar to the given enemy GameObject.</summary>
@@ -41,8 +46,6 @@ public class EnemyHealthBar : MonoBehaviour
     // ── Setup ─────────────────────────────────────────────────────────────────
     void Build(int maxHP)
     {
-        cachedMax = maxHP;
-
         Sprite whiteSprite = MakeWhiteSprite();
 
         // ── Background ────────────────────────────────────────────────────────
@@ -51,7 +54,7 @@ public class EnemyHealthBar : MonoBehaviour
         bg.transform.localPosition = Vector3.zero;
         bg.transform.localScale    = new Vector3(BarWidth, BarHeight, 1f);
 
-        var bgSR = bg.AddComponent<SpriteRenderer>();
+        bgSR = bg.AddComponent<SpriteRenderer>();
         bgSR.sprite       = whiteSprite;
         bgSR.color        = BgColor;
         bgSR.sortingOrder = SortOrder;
@@ -78,16 +81,25 @@ public class EnemyHealthBar : MonoBehaviour
         fill.transform.SetParent(pivot.transform, true);
         fillTransform = pivot.transform;
 
-        // Start fully filled
-        // Always visible from the start
+        // Start fully filled but hidden by default.
         gameObject.SetActive(true);
+        currentAlpha = 0f;
+        targetAlpha = 0f;
+        ApplyAlpha(0f);
         SetFill(maxHP, maxHP);
+    }
+
+    void Update()
+    {
+        float speed = targetAlpha > currentAlpha ? FadeInSpeed : FadeOutSpeed;
+        currentAlpha = Mathf.MoveTowards(currentAlpha, targetAlpha, speed * Time.deltaTime);
+        ApplyAlpha(currentAlpha);
     }
 
     // ── Public API ────────────────────────────────────────────────────────────
     public void SetFill(int current, int max)
     {
-        if (fillTransform == null || fillSR == null) return;
+        if (fillTransform == null || fillSR == null || bgSR == null) return;
 
         float pct = max > 0 ? Mathf.Clamp01((float)current / max) : 0f;
 
@@ -96,9 +108,34 @@ public class EnemyHealthBar : MonoBehaviour
         fillTransform.localScale = new Vector3(pct, s.y, s.z);
 
         // Colour: green → yellow → red
-        fillSR.color = pct > 0.6f ? FullColor
-                     : pct > 0.3f ? Color.Lerp(MidColor, FullColor, (pct - 0.3f) / 0.3f)
-                     :               Color.Lerp(LowColor,  MidColor, pct / 0.3f);
+        Color fillColor = pct > 0.6f ? FullColor
+                        : pct > 0.3f ? Color.Lerp(MidColor, FullColor, (pct - 0.3f) / 0.3f)
+                        :               Color.Lerp(LowColor,  MidColor, pct / 0.3f);
+        fillColor.a = currentAlpha;
+        fillSR.color = fillColor;
+    }
+
+    public void SetVisible(bool visible, bool instant = false)
+    {
+        targetAlpha = visible ? 1f : 0f;
+        if (instant)
+        {
+            currentAlpha = targetAlpha;
+            ApplyAlpha(currentAlpha);
+        }
+    }
+
+    void ApplyAlpha(float alpha)
+    {
+        if (bgSR == null || fillSR == null) return;
+
+        var bgColor = bgSR.color;
+        bgColor.a = BgColor.a * alpha;
+        bgSR.color = bgColor;
+
+        var fillColor = fillSR.color;
+        fillColor.a = alpha;
+        fillSR.color = fillColor;
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
