@@ -12,8 +12,8 @@ public class StatusHUD : MonoBehaviour
     public static StatusHUD Instance { get; private set; }
 
     // ── Cached state ─────────────────────────────────────────────────────────
-    private int   currentHP      = 3;
-    private int   maxHP          = 3;
+    private int   currentHP      = 5;
+    private int   maxHP          = 5;
     private float flashCooldown  = 0f;      // seconds remaining on cooldown
     private float flashMaxCD     = 20f;     // full cooldown duration
     private int   enemiesLeft    = 0;
