@@ -1,7 +1,9 @@
 using UnityEngine;
+using UnityEngine.Rendering.Universal;
 using TMPro;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
+using System.Collections;
 using System.Linq;
 
 public class GameManager : MonoBehaviour
@@ -84,15 +86,41 @@ public class GameManager : MonoBehaviour
         gameEnded = true;
     }
 
+    [Header("Victory Light-Up")]
+    public float victoryLightDuration = 1f;
+    public float victoryLightIntensity = 1f;
+
     public void PlayerWon()
     {
         if (gameEnded) return;
 
         gameEnded = true;
+        StartCoroutine(VictorySequence());
+    }
+
+    IEnumerator VictorySequence()
+    {
+        // Create a global light that illuminates the entire room
+        var lightObj = new GameObject("VictoryLight");
+        var light = lightObj.AddComponent<Light2D>();
+        light.lightType = Light2D.LightType.Global;
+        light.color = new Color(1f, 0.95f, 0.85f);
+        light.intensity = 0f;
+
+        // Fade the light up over the duration
+        float elapsed = 0f;
+        while (elapsed < victoryLightDuration)
+        {
+            elapsed += Time.deltaTime;
+            light.intensity = Mathf.Lerp(0f, victoryLightIntensity, elapsed / victoryLightDuration);
+            yield return null;
+        }
+        light.intensity = victoryLightIntensity;
+
+        // Now pause and show the win screen
         playerWon = true;
         Time.timeScale = 0f;
 
-        // Use assigned endText if available, otherwise build win UI dynamically
         if (endText != null)
         {
             endText.color = Color.green;

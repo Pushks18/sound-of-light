@@ -41,6 +41,7 @@ public class PlayerHealth : MonoBehaviour
     public void TakeDamage(int dmg)
     {
         if (isDead || iFrameTimer > 0f) return;
+        if (GameManager.Instance != null && GameManager.Instance.gameEnded) return;
 
         iFrameTimer = iFrameDuration;
         currentHealth -= dmg;
