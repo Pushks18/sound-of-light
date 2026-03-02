@@ -1,14 +1,28 @@
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using System.Collections;
 
 public class PlayerHealth : MonoBehaviour
 {
     public int maxHealth = 3;
     [HideInInspector] public int currentHealth;
 
+    [Header("Damage Flash Settings")]
+    [SerializeField]
+    private float flashDuration = 0.08f;
+    [SerializeField]
+    private Color flashColor = Color.red;
+    private SpriteRenderer sr;
+    private Color originalColor;
+    private bool isFlashing = false;
+
     void Awake()
     {
         currentHealth = maxHealth;
+        sr = GetComponent<SpriteRenderer>();
+        if (sr != null)
+            originalColor = sr.color;
+
         // Initialise HUD with max HP
         StatusHUD.Instance?.UpdateHP(currentHealth, maxHealth);
     }
@@ -18,21 +32,45 @@ public class PlayerHealth : MonoBehaviour
         currentHealth -= dmg;
 
         // 🔥 Tutorial safety: never go below 1 HP
-        if (SceneManager.GetActiveScene().name == "TutorialScene")
+        /*if (SceneManager.GetActiveScene().name == "TutorialScene")
         {
             if (currentHealth < 1)
             {
                 currentHealth = 1;
             }
-        }
+        }*/
 
         GameUIManager.Instance?.UpdateHP(currentHealth);
         StatusHUD.Instance?.UpdateHP(currentHealth, maxHealth);
+
+        // Flash red when hit
+        DamageNumber.Spawn(dmg, transform.position);
+        if (!isFlashing)
+            StartCoroutine(DamageFlash());
 
         if (currentHealth <= 0)
         {
             Die();
         }
+    }
+
+    IEnumerator DamageFlash()
+    {
+        if (sr == null) yield break;
+
+        isFlashing = true;
+
+        int flashCount = 3;
+
+        for (int i = 0; i < flashCount; i++)
+        {
+            sr.color = flashColor;
+            yield return new WaitForSeconds(flashDuration);
+            sr.color = originalColor;
+            yield return new WaitForSeconds(flashDuration);
+        }
+
+        isFlashing = false;
     }
 
     void Die()
