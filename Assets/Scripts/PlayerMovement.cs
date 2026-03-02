@@ -49,13 +49,21 @@ public class PlayerMovement : MonoBehaviour
 
         if (Input.GetKeyDown(KeyCode.LeftShift) && dashCooldownTimer <= 0f)
         {
-            // Check dash count
-            if (PlayerAmmo.Instance != null && !PlayerAmmo.Instance.TrySpendDash())
+            // Check both resources before spending either
+            if (PlayerAmmo.Instance != null && PlayerAmmo.Instance.Dashes <= 0)
             {
                 // no dashes left — don't proceed
             }
-            else if (lightEnergy == null || lightEnergy.TrySpend(dashEnergyCost))
+            else if (lightEnergy != null && !lightEnergy.CanSpend(dashEnergyCost))
             {
+                // not enough energy — don't proceed
+            }
+            else
+            {
+                // Both checks passed — now spend
+                PlayerAmmo.Instance?.TrySpendDash();
+                lightEnergy?.TrySpend(dashEnergyCost);
+
                 dashDirection = aimDirection;
                 dashTimer = dashDuration;
                 dashCooldownTimer = dashCooldown;

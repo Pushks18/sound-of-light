@@ -25,9 +25,6 @@ public class GameManager : MonoBehaviour
 
         Instance = this;
 
-        // Clear static event to prevent stale delegates from previous scene
-        EnemyHealth.OnEnemyKilled = null;
-
         // Count enemies immediately
         enemyCount = GameObject.FindGameObjectsWithTag("Enemy").Length;
 
@@ -36,6 +33,15 @@ public class GameManager : MonoBehaviour
 
         if (endText != null)
             endText.gameObject.SetActive(false);
+    }
+
+    void OnDestroy()
+    {
+        if (Instance == this)
+        {
+            Instance = null;
+            EnemyHealth.OnEnemyKilled = null;
+        }
     }
 
     System.Collections.IEnumerator InitializeUI()

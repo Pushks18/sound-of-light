@@ -15,6 +15,11 @@ public class PlayerHealth : MonoBehaviour
     private SpriteRenderer sr;
     private Color originalColor;
     private bool isFlashing = false;
+    private bool isDead = false;
+
+    [Header("Invincibility")]
+    [SerializeField] private float iFrameDuration = 0.5f;
+    private float iFrameTimer = 0f;
 
     void Awake()
     {
@@ -27,8 +32,17 @@ public class PlayerHealth : MonoBehaviour
         StatusHUD.Instance?.UpdateHP(currentHealth, maxHealth);
     }
 
+    void Update()
+    {
+        if (iFrameTimer > 0f)
+            iFrameTimer -= Time.deltaTime;
+    }
+
     public void TakeDamage(int dmg)
     {
+        if (isDead || iFrameTimer > 0f) return;
+
+        iFrameTimer = iFrameDuration;
         currentHealth -= dmg;
 
         // 🔥 Tutorial safety: never go below 1 HP
@@ -75,6 +89,13 @@ public class PlayerHealth : MonoBehaviour
 
     void Die()
     {
+        if (isDead) return;
+        isDead = true;
+
+        StopAllCoroutines();
+        if (sr != null) sr.color = originalColor;
+        isFlashing = false;
+
         GameManager.Instance?.PlayerDied();
 
         var deathScreen = FindAnyObjectByType<DeathScreen>();

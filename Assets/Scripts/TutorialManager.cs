@@ -19,6 +19,7 @@ public class TutorialManager : MonoBehaviour
     private bool tutorialFinished = false;
     private bool playerDashed    = false;
     private bool playerShot      = false;
+    private bool playerFlashed   = false;
 
     private PlayerMovement playerMovement;
 
@@ -52,6 +53,8 @@ public class TutorialManager : MonoBehaviour
     {
         if (Input.GetKeyDown(KeyCode.K))
             playerShot = true;
+        if (Input.GetKeyDown(KeyCode.L))
+            playerFlashed = true;
 
         if (tutorialFinished && Input.GetKeyDown(KeyCode.Space))
             SceneManager.LoadScene("MainMenu");
@@ -107,8 +110,9 @@ public class TutorialManager : MonoBehaviour
         yield return new WaitForSeconds(1f);   // 1 s of silence in the dark
 
         // ── 8. FLASH ─────────────────────────────────────────────────────────
+        playerFlashed = false;
         Show("Press L to Flash");
-        yield return new WaitUntil(() => Input.GetKeyDown(KeyCode.L));
+        yield return new WaitUntil(() => playerFlashed);
         Hide();
         yield return new WaitForSeconds(2f);
 

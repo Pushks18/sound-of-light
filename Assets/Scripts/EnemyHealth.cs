@@ -61,7 +61,8 @@ public class EnemyHealth : MonoBehaviour
 
         if (hitGlowPrefab != null)
         {
-            Instantiate(hitGlowPrefab, transform.position, Quaternion.identity);
+            var glow = Instantiate(hitGlowPrefab, transform.position, Quaternion.identity);
+            glow.GetComponent<EnemyHitGlow>()?.TriggerGlow();
         }
 
         UpdateOpacity();
@@ -99,9 +100,11 @@ public class EnemyHealth : MonoBehaviour
 
     IEnumerator DeathFade()
     {
-        // Disable AI and collider so the enemy stops moving/dealing damage
+        // Disable AI, shooting, and collider so the enemy stops moving/dealing damage
         var ai = GetComponent<EnemyAI>();
         if (ai != null) ai.enabled = false;
+        var shooting = GetComponent<EnemyShooting>();
+        if (shooting != null) shooting.enabled = false;
         var col = GetComponent<Collider2D>();
         if (col != null) col.enabled = false;
         var rb = GetComponent<Rigidbody2D>();
@@ -113,7 +116,7 @@ public class EnemyHealth : MonoBehaviour
 
         while (elapsed < duration)
         {
-            elapsed += Time.deltaTime;
+            elapsed += Time.unscaledDeltaTime;
             if (sr != null)
             {
                 var c = startColor;

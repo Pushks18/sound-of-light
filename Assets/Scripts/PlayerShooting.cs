@@ -36,18 +36,22 @@ public class PlayerShooting : MonoBehaviour
             return;
         }
 
-        // Check ammo
-        if (PlayerAmmo.Instance != null && !PlayerAmmo.Instance.TrySpendBullet())
+        // Check both resources before spending either
+        if (PlayerAmmo.Instance != null && PlayerAmmo.Instance.Bullets <= 0)
         {
             Debug.Log("[Shoot] Out of ammo!");
             return;
         }
 
-        if (lightEnergy != null && !lightEnergy.TrySpend(energyCost))
+        if (lightEnergy != null && !lightEnergy.CanSpend(energyCost))
         {
             Debug.Log($"[Shoot] Not enough energy. Current: {lightEnergy.CurrentEnergy}, Cost: {energyCost}");
             return;
         }
+
+        // Both checks passed — now spend
+        PlayerAmmo.Instance?.TrySpendBullet();
+        lightEnergy?.TrySpend(energyCost);
 
         Vector2 direction = playerMovement.AimDirection;
         float angle = Mathf.Atan2(direction.y, direction.x) * Mathf.Rad2Deg - 90f;

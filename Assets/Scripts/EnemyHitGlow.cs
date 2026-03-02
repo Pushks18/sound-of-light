@@ -12,7 +12,9 @@ public class EnemyHitGlow : MonoBehaviour
     void Awake()
     {
         light2D = GetComponent<Light2D>();
-        light2D.intensity = 0f;
+        if (light2D != null)
+            light2D.intensity = 0f;
+        Destroy(gameObject, glowDuration + 0.1f);
     }
 
     public void TriggerGlow()

@@ -83,6 +83,10 @@ public class Bullet : MonoBehaviour
 
     void OnTriggerEnter2D(Collider2D other)
     {
+        // Ignore all trigger colliders (traps, doors, keys, light sources, etc.)
+        if (other.isTrigger)
+            return;
+
         // Player's bullet hits enemy body
         if (CompareTag("Bullet") && other.CompareTag("Enemy"))
         {
@@ -98,10 +102,6 @@ public class Bullet : MonoBehaviour
             Destroy(gameObject);
             return;
         }
-
-        // Ignore all trigger colliders (traps, doors, keys, light sources, etc.)
-        if (other.isTrigger)
-            return;
 
         // Player bullets must ignore the player's own solid collider
         if (CompareTag("Bullet") && other.CompareTag("Player"))

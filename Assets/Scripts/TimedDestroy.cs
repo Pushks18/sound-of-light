@@ -1,7 +1,7 @@
 using UnityEngine;
 using UnityEngine.Rendering.Universal;
 
-public class EchoPulse : MonoBehaviour
+public class TimedDestroy : MonoBehaviour
 {
     private Light2D light2D;
     public float expandSpeed = 6f;
