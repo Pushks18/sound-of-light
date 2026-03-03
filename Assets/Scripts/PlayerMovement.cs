@@ -41,6 +41,11 @@ public class PlayerMovement : MonoBehaviour
         if (moveInput != Vector2.zero)
             aimDirection = moveInput;
 
+        if (rb.linearVelocity.sqrMagnitude <= 0.01f) 
+            PlayerAmmo.Instance?.ReportStill(Time.deltaTime);
+        else
+            PlayerAmmo.Instance?.ReportMoved();
+
         if (dashCooldownTimer > 0f)
             dashCooldownTimer -= Time.deltaTime;
 

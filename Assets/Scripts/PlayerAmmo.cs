@@ -31,6 +31,12 @@ public class PlayerAmmo : MonoBehaviour
     private static readonly Color ColEmpty     = new Color(1f,   0.3f, 0.3f, 0.8f);
     private static readonly Color ColKey       = new Color(1f,   0.85f, 0.2f, 1f);
 
+    // Stillness Regen
+    [Header("Stillness Regen")]
+    [SerializeField]
+    private float stillRegenInterval = 3f;
+    private float stillTimer = 0f;// for internal counting
+
     // ─────────────────────────────────────────────────────────────────────────
     void Awake()
     {
@@ -50,6 +56,52 @@ public class PlayerAmmo : MonoBehaviour
     }
 
     // ── Public API ───────────────────────────────────────────────────────────
+    public void ReportStill(float deltaTime)
+    {
+        if (stillRegenInterval <= 0f) return;
+
+        stillTimer += deltaTime;
+        if (stillTimer >= stillRegenInterval)
+        {
+            stillTimer = 0f;
+            RegainAbilities();
+        }
+    }
+
+    public void ReportMoved()
+    {
+        stillTimer = 0f;
+    }
+
+    void RegainAbilities()
+    {
+        bool changed = false;
+
+        for (int i = 0; i < 3; i++)
+        {
+            if (Bullets < maxBullets)
+            {
+                Bullets++;
+                changed = true;
+            }
+        }
+        if (Dashes < maxDashes)
+        {
+            Dashes++;
+            changed = true;
+        }
+        if (Flashes < maxFlashes)
+        {
+            Flashes++;
+            changed = true;
+        }
+
+        if (changed)
+        {
+            RefreshHUD();
+            Debug.Log($"Stillness regen: Bullets={Bullets}, Dashes={Dashes}, Flashes={Flashes}");
+        }
+    }
 
     public bool TrySpendBullet()
     {

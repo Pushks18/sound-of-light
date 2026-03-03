@@ -100,10 +100,27 @@ public class GameManager : MonoBehaviour
 
     IEnumerator VictorySequence()
     {
+        Debug.Log("VictorySequence() started");
         // Create a global light that illuminates the entire room
-        var lightObj = new GameObject("VictoryLight");
-        var light = lightObj.AddComponent<Light2D>();
-        light.lightType = Light2D.LightType.Global;
+        // Try to find an existing Global Light2D first
+        Light2D light = null;
+        var lights = FindObjectsByType<Light2D>(FindObjectsSortMode.None);
+        foreach (var l in lights)
+        {
+            if (l.lightType == Light2D.LightType.Global)
+            {
+                light = l;
+                break;
+            }
+        }
+        // If none exists create one
+        if (light == null)
+        {
+            var lightObj = new GameObject("VictoryLight");
+            light = lightObj.AddComponent<Light2D>();
+            light.lightType = Light2D.LightType.Global;
+        }
+        // Now configure it
         light.color = new Color(1f, 0.95f, 0.85f);
         light.intensity = 0f;
 
@@ -134,10 +151,13 @@ public class GameManager : MonoBehaviour
 
         if (gameplayUI != null)
             gameplayUI.SetActive(false);
+        
+        Debug.Log("ending VictorySequence()");
     }
 
     void BuildWinScreen()
     {
+        Debug.Log("win screen building started");
         // Find or create a Canvas
         var canvas = FindAnyObjectByType<Canvas>();
         if (canvas == null)
@@ -191,5 +211,6 @@ public class GameManager : MonoBehaviour
         promptText.fontSize = 32;
         promptText.color = Color.white;
         promptText.alignment = TextAlignmentOptions.Center;
+        Debug.Log("win screen building ended");
     }
 }

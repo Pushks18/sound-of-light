@@ -11,7 +11,6 @@ public class EnemyShooting : MonoBehaviour
     private Transform player;
     private float fireTimer;
     private EnemyAI enemyAI;
-    private bool hasFiredFirst = false;
 
     void Start()
     {
