@@ -30,7 +30,7 @@ public class DoorMessageUI : MonoBehaviour
         text.text = message;
         gameObject.SetActive(true);
 
-        yield return new WaitForSeconds(duration);
+        yield return new WaitForSecondsRealtime(duration);
 
         gameObject.SetActive(false);
     }

@@ -31,11 +31,26 @@ public class PlayerAmmo : MonoBehaviour
     private static readonly Color ColEmpty     = new Color(1f,   0.3f, 0.3f, 0.8f);
     private static readonly Color ColKey       = new Color(1f,   0.85f, 0.2f, 1f);
 
-    // Stillness Regen
-    [Header("Stillness Regen")]
-    [SerializeField]
-    private float stillRegenInterval = 3f;
-    private float stillTimer = 0f;// for internal counting
+    // Per-ability regen timers
+    [Header("Bullet Regen")]
+    public float bulletRegenDelay    = 5f;   // seconds after last shot before regen starts
+    public float bulletRegenInterval = 0.5f; // one bullet every 0.5s once regen starts
+
+    [Header("Dash Regen")]
+    public float dashRegenDelay    = 8f;     // seconds after last dash
+    public float dashRegenInterval = 2f;     // one dash every 2s
+
+    [Header("Flash Regen")]
+    public float flashRegenDelay    = 8f;    // seconds after last flash
+    public float flashRegenInterval = 2f;    // one flash every 2s
+
+    private float lastBulletUseTime = Mathf.NegativeInfinity;
+    private float lastDashUseTime   = Mathf.NegativeInfinity;
+    private float lastFlashUseTime  = Mathf.NegativeInfinity;
+
+    private float bulletRegenAccum;
+    private float dashRegenAccum;
+    private float flashRegenAccum;
 
     // ─────────────────────────────────────────────────────────────────────────
     void Awake()
@@ -55,58 +70,52 @@ public class PlayerAmmo : MonoBehaviour
         if (Instance == this) Instance = null;
     }
 
-    // ── Public API ───────────────────────────────────────────────────────────
-    public void ReportStill(float deltaTime)
+    void Update()
     {
-        if (stillRegenInterval <= 0f) return;
-
-        stillTimer += deltaTime;
-        if (stillTimer >= stillRegenInterval)
+        // Bullet regen
+        if (Bullets < maxBullets && Time.time - lastBulletUseTime >= bulletRegenDelay)
         {
-            stillTimer = 0f;
-            RegainAbilities();
-        }
-    }
-
-    public void ReportMoved()
-    {
-        stillTimer = 0f;
-    }
-
-    void RegainAbilities()
-    {
-        bool changed = false;
-
-        for (int i = 0; i < 3; i++)
-        {
-            if (Bullets < maxBullets)
+            bulletRegenAccum += Time.deltaTime;
+            while (bulletRegenAccum >= bulletRegenInterval && Bullets < maxBullets)
             {
+                bulletRegenAccum -= bulletRegenInterval;
                 Bullets++;
-                changed = true;
             }
         }
-        if (Dashes < maxDashes)
+
+        // Dash regen
+        if (Dashes < maxDashes && Time.time - lastDashUseTime >= dashRegenDelay)
         {
-            Dashes++;
-            changed = true;
-        }
-        if (Flashes < maxFlashes)
-        {
-            Flashes++;
-            changed = true;
+            dashRegenAccum += Time.deltaTime;
+            while (dashRegenAccum >= dashRegenInterval && Dashes < maxDashes)
+            {
+                dashRegenAccum -= dashRegenInterval;
+                Dashes++;
+            }
         }
 
-        if (changed)
+        // Flash regen
+        if (Flashes < maxFlashes && Time.time - lastFlashUseTime >= flashRegenDelay)
         {
-            RefreshHUD();
-            Debug.Log($"Stillness regen: Bullets={Bullets}, Dashes={Dashes}, Flashes={Flashes}");
+            flashRegenAccum += Time.deltaTime;
+            while (flashRegenAccum >= flashRegenInterval && Flashes < maxFlashes)
+            {
+                flashRegenAccum -= flashRegenInterval;
+                Flashes++;
+            }
         }
+
+        // Always keep HUD in sync while any resource is regenerating
+        if (Bullets < maxBullets || Dashes < maxDashes || Flashes < maxFlashes)
+            RefreshHUD();
     }
 
     public bool TrySpendBullet()
     {
         if (Bullets <= 0) return false;
         Bullets--;
+        lastBulletUseTime = Time.time;
+        bulletRegenAccum = 0f;
         RefreshHUD();
         return true;
     }
@@ -115,6 +124,8 @@ public class PlayerAmmo : MonoBehaviour
     {
         if (Dashes <= 0) return false;
         Dashes--;
+        lastDashUseTime = Time.time;
+        dashRegenAccum = 0f;
         RefreshHUD();
         return true;
     }
@@ -123,6 +134,8 @@ public class PlayerAmmo : MonoBehaviour
     {
         if (Flashes <= 0) return false;
         Flashes--;
+        lastFlashUseTime = Time.time;
+        flashRegenAccum = 0f;
         RefreshHUD();
         return true;
     }

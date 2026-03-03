@@ -19,6 +19,9 @@ public class PlayerMovement : MonoBehaviour
     private Vector2 dashDirection;
     private LightEnergy lightEnergy;
 
+    private int playerLayer;
+    private int enemyLayer;
+
     /// <summary>Last non-zero movement direction (8-way, normalized).</summary>
     public Vector2 AimDirection => aimDirection;
     public bool IsDashing => dashTimer > 0f;
@@ -29,6 +32,12 @@ public class PlayerMovement : MonoBehaviour
     {
         rb = GetComponent<Rigidbody2D>();
         lightEnergy = GetComponent<LightEnergy>();
+
+        playerLayer = gameObject.layer;
+        enemyLayer = LayerMask.NameToLayer("Enemy");
+
+        // Ensure clean collision state on scene load (persists across scenes)
+        Physics2D.IgnoreLayerCollision(playerLayer, enemyLayer, false);
     }
 
     void Update()
@@ -41,16 +50,21 @@ public class PlayerMovement : MonoBehaviour
         if (moveInput != Vector2.zero)
             aimDirection = moveInput;
 
-        if (rb.linearVelocity.sqrMagnitude <= 0.01f) 
-            PlayerAmmo.Instance?.ReportStill(Time.deltaTime);
-        else
-            PlayerAmmo.Instance?.ReportMoved();
-
         if (dashCooldownTimer > 0f)
-            dashCooldownTimer -= Time.deltaTime;
+            dashCooldownTimer -= Time.unscaledDeltaTime;
 
         if (dashTimer > 0f)
-            dashTimer -= Time.deltaTime;
+        {
+            dashTimer -= Time.unscaledDeltaTime;
+
+            // Restore collision as soon as the timer runs out
+            if (dashTimer <= 0f)
+                Physics2D.IgnoreLayerCollision(playerLayer, enemyLayer, false);
+        }
+
+        // Block dashing when game has ended (victory/death pause)
+        if (GameManager.Instance != null && GameManager.Instance.gameEnded)
+            return;
 
         if (Input.GetKeyDown(KeyCode.LeftShift) && dashCooldownTimer <= 0f)
         {
@@ -72,9 +86,20 @@ public class PlayerMovement : MonoBehaviour
                 dashDirection = aimDirection;
                 dashTimer = dashDuration;
                 dashCooldownTimer = dashCooldown;
+
+                // Let the player pass through enemies while dashing
+                Physics2D.IgnoreLayerCollision(playerLayer, enemyLayer, true);
+
                 OnDashStart?.Invoke();
             }
         }
+    }
+
+    void OnDisable()
+    {
+        // Ensure collision is restored if the player dies or is disabled mid-dash
+        if (enemyLayer >= 0)
+            Physics2D.IgnoreLayerCollision(playerLayer, enemyLayer, false);
     }
 
     void FixedUpdate()

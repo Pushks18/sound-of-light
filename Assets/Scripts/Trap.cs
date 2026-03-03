@@ -225,13 +225,22 @@ public class Trap : MonoBehaviour
         col.isTrigger = true;
         col.radius = burstLightRadius;
 
-        StartCoroutine(DestroyLightBurst(lightObj, col, burstLightDuration));
+        // Self-destruct on the light burst itself so it cleans up
+        // even if this trap is destroyed mid-burst
+        var destroyer = lightObj.AddComponent<TimedLightBurstDestroy>();
+        destroyer.delay = burstLightDuration;
     }
+}
 
-    IEnumerator DestroyLightBurst(GameObject obj, Collider2D col, float delay)
+public class TimedLightBurstDestroy : MonoBehaviour
+{
+    [HideInInspector] public float delay;
+
+    IEnumerator Start()
     {
         yield return new WaitForSeconds(delay);
+        var col = GetComponent<Collider2D>();
         if (col != null) col.enabled = false;
-        if (obj != null) Destroy(obj);
+        Destroy(gameObject);
     }
 }

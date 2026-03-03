@@ -22,9 +22,10 @@ public class PlayerLightWave : MonoBehaviour
     void Update()
     {
         if (cooldownTimer > 0f)
+        {
             cooldownTimer -= Time.deltaTime;
-
-        GameUIManager.Instance?.UpdateFlash(cooldownTimer > 0f ? cooldownTimer : 0f);
+            GameUIManager.Instance?.UpdateFlash(cooldownTimer > 0f ? cooldownTimer : 0f);
+        }
 
         if (Input.GetKeyDown(KeyCode.L) && cooldownTimer <= 0f)
         {

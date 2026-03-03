@@ -12,6 +12,8 @@ public class TimedDestroy : MonoBehaviour
     void Awake()
     {
         light2D = GetComponent<Light2D>();
+        if (light2D == null) { Destroy(gameObject); return; }
+
         currentIntensity = light2D.intensity;
         currentRadius = 0f;
         light2D.pointLightOuterRadius = 0f;
@@ -20,6 +22,8 @@ public class TimedDestroy : MonoBehaviour
 
     void Update()
     {
+        if (light2D == null) { Destroy(gameObject); return; }
+
         // Expand the light radius directly
         currentRadius += expandSpeed * Time.deltaTime;
         light2D.pointLightOuterRadius = currentRadius;

@@ -24,6 +24,14 @@ public class EnemyAI : MonoBehaviour
     void Start()
     {
         rb = GetComponent<Rigidbody2D>();
+        rb.mass = 100f;
+        rb.constraints = RigidbodyConstraints2D.FreezeRotation;
+
+        // Ensure the main collider is solid so the player can't walk through
+        var col = GetComponent<Collider2D>();
+        if (col != null)
+            col.isTrigger = false;
+
         player = GameObject.FindGameObjectWithTag("Player")?.transform;
 
         // Mark glow (small red light when hit)

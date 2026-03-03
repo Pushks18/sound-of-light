@@ -9,7 +9,7 @@ public class DeathScreen : MonoBehaviour
     private GameObject panel;
     private bool isDead;
 
-    void Start()
+    void Awake()
     {
         // Build death screen UI under this Canvas
         panel = new GameObject("DeathPanel");

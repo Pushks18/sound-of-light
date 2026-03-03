@@ -26,11 +26,16 @@ The world is dark. You have no flashlight — only your combat abilities produce
 - Shooting, dashing, slashing, and flashing all draw from this pool.
 
 #### Ammo
-- Discrete, non-regenerating ammo tracked by `PlayerAmmo`:
+- Discrete ammo tracked by `PlayerAmmo`:
   - **Bullets:** 15 max (consumed by Shoot)
   - **Dashes:** 5 max (consumed by Dash)
   - **Flashes:** 5 max (consumed by Light Wave)
 - Each ability requires both sufficient ammo AND energy. Both are checked before either is spent.
+- **Per-ability regen:** Each resource regenerates independently after a delay from its last use:
+  - **Bullets:** 5 seconds after last shot, then +1 bullet every 0.5 seconds.
+  - **Dashes:** 8 seconds after last dash, then +1 dash every 2 seconds.
+  - **Flashes:** 8 seconds after last flash, then +1 flash every 2 seconds.
+- Using an ability resets that ability's regen timer. Regen is not tied to standing still — it happens regardless of movement.
 
 ### Slash (J)
 - 120-degree melee arc in your aim direction.
@@ -157,7 +162,7 @@ Assets/
     PlayerAmbientLight.cs     # Always-on dim glow (doesn't activate enemies, no shadows)
     PlayerHealth.cs           # Player HP + iFrames + damage flash + death handling
     PlayerInventory.cs        # Key collection (HashSet-based)
-    PlayerAmmo.cs             # Discrete bullet/dash/flash counts + top-right pip HUD
+    PlayerAmmo.cs             # Discrete bullet/dash/flash counts + per-ability timed regen + top-right pip HUD
     LightEnergy.cs            # Unified energy pool for all abilities (500 max, 1/sec regen)
     FlashlightAim.cs          # Weapon visual rotation toward mouse cursor
 
@@ -202,6 +207,7 @@ Assets/
     CameraShake.cs            # Screen shake on impacts (rest-position based)
     MainMenuController.cs     # Main menu navigation (Tutorial / Game / Quit)
     TutorialManager.cs        # Tutorial scene sequence (Move->Slash->Trap->Dash->Shoot->Flash)
+    WebGLOptimizer.cs         # Auto-configures frame rate and vsync for smooth WebGL builds
 
   Prefabs/
     Bullet.prefab             # Player bullet (yellow light, unlit sprite)

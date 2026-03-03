@@ -13,6 +13,8 @@ public class ExplosionLight : MonoBehaviour
 
     void Update()
     {
+        if (light2D == null) { Destroy(gameObject); return; }
+
         light2D.intensity -= fadeSpeed * Time.deltaTime;
 
         if (light2D.intensity <= 0)
