@@ -93,6 +93,12 @@ public class PlayerHealth : MonoBehaviour
         if (isDead) return;
         isDead = true;
 
+        var sendToGoogle = FindAnyObjectByType<SendToGoogle>();
+        if (sendToGoogle != null)
+        {
+            sendToGoogle.SendDeathPosition(transform.position);
+        }
+
         StopAllCoroutines();
         if (sr != null) sr.color = originalColor;
         isFlashing = false;
