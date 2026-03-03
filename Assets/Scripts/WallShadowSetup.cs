@@ -13,7 +13,7 @@ public class WallShadowSetup : MonoBehaviour
                 if (obj.GetComponent<ShadowCaster2D>() == null)
                 {
                     var caster = obj.AddComponent<ShadowCaster2D>();
-                    caster.selfShadows = true;
+                    caster.selfShadows = false;
                     SetShadowPathFromCollider(caster, obj.GetComponent<Collider2D>());
                 }
             }

@@ -22,8 +22,7 @@ public class PlayerAmbientLight : MonoBehaviour
         light.pointLightInnerRadius = ambientRadius * 0.3f;
         light.pointLightOuterAngle = 360f;
         light.pointLightInnerAngle = 360f;
-        light.shadowsEnabled = true;
-        light.shadowIntensity = 0.5f;
+        light.shadowsEnabled = false;
         light.falloffIntensity = 0.7f;
     }
 }

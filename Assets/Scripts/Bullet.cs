@@ -111,9 +111,17 @@ public class Bullet : MonoBehaviour
         if (CompareTag("EnemyBullet") && other.CompareTag("Enemy"))
             return;
 
-        // Walls / solid environment
+        // Walls / solid environment — offset light away from wall surface
         if (impactEchoPrefab != null)
-            Instantiate(impactEchoPrefab, transform.position, Quaternion.identity);
+        {
+            Vector2 closestPoint = other.ClosestPoint(transform.position);
+            Vector2 normal = ((Vector2)transform.position - closestPoint).normalized;
+            // If bullet is exactly on the surface, fall back to velocity direction
+            if (normal.sqrMagnitude < 0.01f && rb != null)
+                normal = -rb.linearVelocity.normalized;
+            Vector3 spawnPos = (Vector3)closestPoint + (Vector3)(normal * 0.6f);
+            Instantiate(impactEchoPrefab, spawnPos, Quaternion.identity);
+        }
 
         Destroy(gameObject);
     }
