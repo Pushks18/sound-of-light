@@ -22,6 +22,10 @@ public class PlayerSlash : MonoBehaviour
     private LightEnergy lightEnergy;
     private float cooldownTimer;
 
+    // Cached shared resources to avoid per-use Shader.Find and Texture2D allocations
+    private static Material cachedSpriteMat;
+    private static Sprite   cachedCircleSprite;
+
     void Start()
     {
         playerMovement = GetComponent<PlayerMovement>();
@@ -103,7 +107,7 @@ public class PlayerSlash : MonoBehaviour
 
         var meshFilter = meshObj.AddComponent<MeshFilter>();
         var meshRenderer = meshObj.AddComponent<MeshRenderer>();
-        meshRenderer.material = new Material(Shader.Find("Sprites/Default"));
+        meshRenderer.material = GetSpriteMaterial();
         meshRenderer.sortingOrder = 10;
 
         // Build fan mesh: center vertex + arc vertices
@@ -142,7 +146,7 @@ public class PlayerSlash : MonoBehaviour
 
         var line = edgeObj.AddComponent<LineRenderer>();
         line.useWorldSpace = false;
-        line.material = new Material(Shader.Find("Sprites/Default"));
+        line.material = GetSpriteMaterial();
         line.startColor = arcEdgeColor;
         line.endColor = arcEdgeColor;
         line.startWidth = 0.06f;
@@ -209,8 +213,8 @@ public class PlayerSlash : MonoBehaviour
 
         // Small visible sprite (unlit so it's always visible)
         var sr = sparkObj.AddComponent<SpriteRenderer>();
-        sr.sprite = CreateCircleSprite();
-        sr.material = new Material(Shader.Find("Sprites/Default"));
+        sr.sprite = GetCircleSprite();
+        sr.material = GetSpriteMaterial();
         sr.color = new Color(0.8f, 0.9f, 1f, 0.9f);
         sr.sortingOrder = 12;
         sparkObj.transform.localScale = new Vector3(0.3f, 0.3f, 1f);
@@ -220,25 +224,40 @@ public class PlayerSlash : MonoBehaviour
         fader.duration = 0.2f;
     }
 
-    Sprite CreateCircleSprite()
+    static Material GetSpriteMaterial()
     {
-        int size = 32;
-        var tex = new Texture2D(size, size, TextureFormat.RGBA32, false);
-        float center = size * 0.5f;
-        float radius = center - 1f;
-
-        for (int y = 0; y < size; y++)
+        if (cachedSpriteMat == null)
         {
-            for (int x = 0; x < size; x++)
-            {
-                float dist = Vector2.Distance(new Vector2(x, y), new Vector2(center, center));
-                float a = Mathf.Clamp01(1f - (dist / radius));
-                tex.SetPixel(x, y, new Color(1f, 1f, 1f, a * a));
-            }
+            var shader = Shader.Find("Sprites/Default");
+            if (shader != null)
+                cachedSpriteMat = new Material(shader);
         }
+        return cachedSpriteMat;
+    }
 
-        tex.Apply();
-        return Sprite.Create(tex, new Rect(0, 0, size, size), new Vector2(0.5f, 0.5f), size);
+    static Sprite GetCircleSprite()
+    {
+        if (cachedCircleSprite == null)
+        {
+            int size = 32;
+            var tex = new Texture2D(size, size, TextureFormat.RGBA32, false);
+            float center = size * 0.5f;
+            float radius = center - 1f;
+
+            for (int y = 0; y < size; y++)
+            {
+                for (int x = 0; x < size; x++)
+                {
+                    float dist = Vector2.Distance(new Vector2(x, y), new Vector2(center, center));
+                    float a = Mathf.Clamp01(1f - (dist / radius));
+                    tex.SetPixel(x, y, new Color(1f, 1f, 1f, a * a));
+                }
+            }
+
+            tex.Apply();
+            cachedCircleSprite = Sprite.Create(tex, new Rect(0, 0, size, size), new Vector2(0.5f, 0.5f), size);
+        }
+        return cachedCircleSprite;
     }
 
     bool IsBlockedByWall(Vector2 origin, Vector2 target, GameObject targetObj)

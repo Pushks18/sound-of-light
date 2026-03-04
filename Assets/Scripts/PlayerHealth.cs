@@ -80,9 +80,9 @@ public class PlayerHealth : MonoBehaviour
         for (int i = 0; i < flashCount; i++)
         {
             sr.color = flashColor;
-            yield return new WaitForSeconds(flashDuration);
+            yield return new WaitForSecondsRealtime(flashDuration);
             sr.color = originalColor;
-            yield return new WaitForSeconds(flashDuration);
+            yield return new WaitForSecondsRealtime(flashDuration);
         }
 
         isFlashing = false;
@@ -110,7 +110,6 @@ public class PlayerHealth : MonoBehaviour
         {
             deathScreen.Show();
 
-            var sr = GetComponent<SpriteRenderer>();
             if (sr != null) sr.enabled = false;
 
             var col = GetComponent<Collider2D>();

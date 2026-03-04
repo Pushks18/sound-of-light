@@ -32,13 +32,13 @@ public class LightFader : MonoBehaviour
     IEnumerator FadeRoutine()
     {
         // 1. 保持全亮阶段
-        yield return new WaitForSeconds(keepTime);
+        yield return new WaitForSecondsRealtime(keepTime);
 
         // 2. 渐弱阶段
         float elapsed = 0f;
         while (elapsed < fadeDuration)
         {
-            elapsed += Time.deltaTime;
+            elapsed += Time.unscaledDeltaTime;
             float lerpVal = elapsed / fadeDuration;
 
             // 亮度线性变暗

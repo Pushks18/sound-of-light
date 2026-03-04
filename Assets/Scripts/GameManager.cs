@@ -42,7 +42,6 @@ public class GameManager : MonoBehaviour
         if (Instance == this)
         {
             Instance = null;
-            EnemyHealth.OnEnemyKilled = null;
         }
     }
 

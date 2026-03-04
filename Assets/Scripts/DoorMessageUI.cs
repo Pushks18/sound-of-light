@@ -9,6 +9,7 @@ public class DoorMessageUI : MonoBehaviour
 
     void Awake()
     {
+        if (instance != null && instance != this) { Destroy(gameObject); return; }
         instance = this;
         text = GetComponent<TMP_Text>();
         gameObject.SetActive(false);

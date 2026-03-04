@@ -25,6 +25,7 @@ public class EnemyHitGlow : MonoBehaviour
 
     IEnumerator GlowRoutine()
     {
+        if (light2D == null) yield break;
         light2D.intensity = glowIntensity;
 
         float timer = 0f;
@@ -32,10 +33,12 @@ public class EnemyHitGlow : MonoBehaviour
         while (timer < glowDuration)
         {
             timer += Time.deltaTime;
-            light2D.intensity = Mathf.Lerp(glowIntensity, 0f, timer / glowDuration);
+            if (light2D != null)
+                light2D.intensity = Mathf.Lerp(glowIntensity, 0f, timer / glowDuration);
             yield return null;
         }
 
-        light2D.intensity = 0f;
+        if (light2D != null)
+            light2D.intensity = 0f;
     }
 }

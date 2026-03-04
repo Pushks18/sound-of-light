@@ -17,7 +17,8 @@ public class FootprintFade : MonoBehaviour
         timer += Time.deltaTime;
 
         float t = timer / lifetime;
-        light2D.intensity = Mathf.Lerp(0.5f, 0f, t);
+        if (light2D != null)
+            light2D.intensity = Mathf.Lerp(0.5f, 0f, t);
 
         if (timer >= lifetime)
         {

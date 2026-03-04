@@ -11,7 +11,7 @@ public class LightEnergy : MonoBehaviour
 
     public float CurrentEnergy => currentEnergy;
     public float MaxEnergy => maxEnergy;
-    public float EnergyPercent => currentEnergy / maxEnergy;
+    public float EnergyPercent => maxEnergy > 0f ? currentEnergy / maxEnergy : 0f;
 
     void Awake()
     {

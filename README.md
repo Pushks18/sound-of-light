@@ -82,20 +82,21 @@ The world is dark. You have no flashlight — only your combat abilities produce
 - During the death fade, AI and shooting are disabled and the collider is removed.
 - Stunned enemies can't move or shoot for the stun duration.
 - Enemies have a **mark light** (small red glow) that activates briefly when hit.
-- Enemies have a **proximity glow** that intensifies as the player approaches (max distance 8 units).
+- Enemies have a **proximity glow** that intensifies as the player approaches (max distance 8 units). Player reference is re-acquired if lost.
 - **Floating damage numbers** appear above enemies when they take damage — red-orange text that floats upward and fades out.
 - **Mini health bars** appear above enemies when hit or illuminated — green/yellow/red fill with smooth fade-in/out.
 
 ### Traps
 - Traps are invisible until revealed by a light source.
 - **Dormant:** Hidden, no damage. Light from abilities (slash, dash, light wave, bullets) reveals them. Only lights with intensity > 0 trigger reveal (filters out the idle muzzle flash).
-- **Arming (2 seconds):** Once revealed, a yellow light fades in over 2 seconds.
+- **Arming (2 seconds):** Once revealed, a yellow light fades in over 2 seconds. Only one reveal can trigger per trap (duplicate light sources on the same frame are guarded against).
 - **Armed:** Light turns red and pulses (sinusoidal oscillation). Contact now deals 1 damage.
 - Traps can be **dodged by dashing** — a 0.15-second delay on damage allows dashes to pass through.
 - Traps deal repeated damage if the player stands on them (with 2-second per-entity cooldown between hits).
 - Optional light burst on damage (radius 3, tagged "LightSource") that can wake nearby enemies.
 - Affects both players and enemies.
 - Supports a `startArmed` flag for traps that should be active from the start (used in tutorial).
+- All trap coroutines use real time (`WaitForSecondsRealtime` / `Time.unscaledDeltaTime`) so they complete even during victory/death pause.
 
 ### Combat
 - Player has **3 HP**, enemies have **2 HP**.
@@ -104,11 +105,11 @@ The world is dark. You have no flashlight — only your combat abilities produce
 - Enemy bullets: faint red light, always visible in the dark.
 - Bullets are triggers (no physics knockback). They ignore other trigger colliders (traps, doors, keys, light sources).
 - Bullets produce a faint muzzle flash and an impact echo light on wall impact (offset from the wall surface along the collision normal).
-- **Slash deflects enemy bullets** with a blue-white spark visual effect.
+- **Slash deflects enemy bullets** with a blue-white spark visual effect (spark textures and materials are cached to avoid per-deflect allocations).
 - **Dashing destroys enemy bullets** on contact.
 - **Floating damage numbers** appear on both player and enemy hits.
 - **Player invincibility frames:** 0.5-second i-frame window after taking damage prevents multi-hit scenarios.
-- **Damage flash:** Player sprite flashes red 3 times when hit.
+- **Damage flash:** Player sprite flashes red 3 times when hit (uses real time so the flash completes even during pause).
 - **Victory invulnerability:** Player cannot take damage once the game has ended (prevents stray hits during the victory sequence).
 
 ### Keys & Doors
@@ -141,6 +142,7 @@ Three procedurally-built HUD panels — no prefabs or Inspector wiring needed:
 - **Death:** A "YOU DIED" overlay with dark background appears. Press Space to restart the current scene. Player sprite and collider are disabled; all player scripts are turned off.
 - **Victory:** After the 1-second room light-up, the game pauses (timeScale = 0) and a "YOU WON!" overlay appears. Press Space to return to the main menu.
 - Both screens build themselves dynamically — no manual UI wiring required.
+- All singletons (StatusHUD, PlayerAmmo, WinText, DoorMessageUI, CameraShake) have duplicate protection — extra instances destroy their entire GameObject to prevent orphaned UI.
 
 ## Tech Stack
 
@@ -156,14 +158,14 @@ Assets/
     # Player
     PlayerMovement.cs         # WASD movement + Shift dash (aim-direction based)
     PlayerShooting.cs         # K key ranged attack (ammo + energy cost)
-    PlayerSlash.cs            # J key melee arc + light cone + wall LOS + bullet deflection
+    PlayerSlash.cs            # J key melee arc + light cone + wall LOS + bullet deflection + cached materials/sprites
     PlayerDash.cs             # Dash light trail + afterimages + 2 damage + bullet destroy
     PlayerLightWave.cs        # L key room-wide light burst (ammo + energy, 20s cooldown)
     PlayerAmbientLight.cs     # Always-on dim glow (doesn't activate enemies, no shadows)
     PlayerHealth.cs           # Player HP + iFrames + damage flash + death handling
     PlayerInventory.cs        # Key collection (HashSet-based)
     PlayerAmmo.cs             # Discrete bullet/dash/flash counts + per-ability timed regen + top-right pip HUD
-    LightEnergy.cs            # Unified energy pool for all abilities (500 max, 1/sec regen)
+    LightEnergy.cs            # Unified energy pool for all abilities (500 max, 1/sec regen, safe division)
     FlashlightAim.cs          # Weapon visual rotation toward mouse cursor
 
     # Enemies
@@ -175,17 +177,17 @@ Assets/
     EnemyHitGlow.cs           # Visual glow on enemy hit (Light2D flash)
 
     # Projectiles & Effects
-    Bullet.cs                 # Projectile + light (yellow player / red enemy) + impact offset
+    Bullet.cs                 # Projectile + light (yellow player / red enemy) + impact offset + cached materials
     DamageNumber.cs           # Floating "-N" damage text (red-orange, fades upward)
     ImpactLightStatic.cs      # Static impact light on wall hit (shadows disabled)
     TimedDestroy.cs           # Expanding echo pulse light
     ExplosionLight.cs         # Fading explosion light effect
-    LightFader.cs             # Generic light fade-out utility (keep + fade phases)
+    LightFader.cs             # Generic light fade-out utility (keep + fade phases, unscaled time)
     HitLightFade.cs           # Hit light fade effect
     FootprintFade.cs          # Dash footprint fade effect
 
     # Environment
-    Trap.cs                   # Dormant->Arming->Armed state machine, dodge via dash
+    Trap.cs                   # Dormant->Arming->Armed state machine, dodge via dash, duplicate-reveal guard
     Key.cs                    # Collectible key pickup
     KeyItem.cs                # Key follow behavior (floats near player after pickup)
     Door.cs                   # Exit door, requires matching key to win
@@ -204,7 +206,7 @@ Assets/
     GameUIManager.cs          # Secondary HUD (Inspector-wired HP, enemy, flash text)
 
     # Camera & Utility
-    CameraShake.cs            # Screen shake on impacts (rest-position based)
+    CameraShake.cs            # Screen shake on impacts (unscaled time, rest-position based)
     MainMenuController.cs     # Main menu navigation (Tutorial / Game / Quit)
     TutorialManager.cs        # Tutorial scene sequence (Move->Slash->Trap->Dash->Shoot->Flash)
     WebGLOptimizer.cs         # Auto-configures frame rate and vsync for smooth WebGL builds

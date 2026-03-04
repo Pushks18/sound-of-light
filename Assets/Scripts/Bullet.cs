@@ -12,6 +12,7 @@ public class Bullet : MonoBehaviour
     public Color bulletLightColor = new Color(1f, 0.85f, 0.5f);
 
     private Rigidbody2D rb;
+    private static Material cachedSpriteMat;
 
     void Start()
     {
@@ -24,7 +25,7 @@ public class Bullet : MonoBehaviour
             var sr = GetComponent<SpriteRenderer>();
             if (sr != null)
             {
-                sr.material = new Material(Shader.Find("Sprites/Default"));
+                sr.material = GetSpriteMaterial();
                 sr.color = new Color(1f, 0.3f, 0.2f);
                 sr.sortingOrder = 10;
             }
@@ -47,7 +48,7 @@ public class Bullet : MonoBehaviour
             var sr = GetComponent<SpriteRenderer>();
             if (sr != null)
             {
-                sr.material = new Material(Shader.Find("Sprites/Default"));
+                sr.material = GetSpriteMaterial();
                 sr.color = bulletLightColor;
                 sr.sortingOrder = 10;
                 transform.localScale = new Vector3(0.25f, 0.25f, 1f);
@@ -79,6 +80,17 @@ public class Bullet : MonoBehaviour
         }
 
         Destroy(gameObject, 3f);
+    }
+
+    static Material GetSpriteMaterial()
+    {
+        if (cachedSpriteMat == null)
+        {
+            var shader = Shader.Find("Sprites/Default");
+            if (shader != null)
+                cachedSpriteMat = new Material(shader);
+        }
+        return cachedSpriteMat;
     }
 
     void OnTriggerEnter2D(Collider2D other)

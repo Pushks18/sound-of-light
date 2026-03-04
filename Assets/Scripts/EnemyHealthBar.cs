@@ -111,7 +111,7 @@ public class EnemyHealthBar : MonoBehaviour
         Color fillColor = pct > 0.6f ? FullColor
                         : pct > 0.3f ? Color.Lerp(MidColor, FullColor, (pct - 0.3f) / 0.3f)
                         :               Color.Lerp(LowColor,  MidColor, pct / 0.3f);
-        fillColor.a = currentAlpha;
+        fillColor.a = targetAlpha;
         fillSR.color = fillColor;
     }
 

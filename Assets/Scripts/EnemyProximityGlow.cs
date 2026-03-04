@@ -17,8 +17,14 @@ public class EnemyProximityGlow : MonoBehaviour
 
     void Update()
     {
-        if (player == null || enemyLight == null)
-            return;
+        if (enemyLight == null) return;
+
+        // Re-acquire player if reference was lost (e.g. respawn)
+        if (player == null)
+        {
+            player = GameObject.FindGameObjectWithTag("Player")?.transform;
+            if (player == null) return;
+        }
 
         float distance = Vector2.Distance(transform.position, player.position);
 

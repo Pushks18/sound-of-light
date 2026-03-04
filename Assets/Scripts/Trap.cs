@@ -84,7 +84,10 @@ public class Trap : MonoBehaviour
             {
                 var light = other.GetComponent<Light2D>();
                 if (light != null && light.intensity > 0f)
+                {
+                    state = State.Arming; // guard against duplicate coroutines
                     StartCoroutine(RevealAndArm());
+                }
             }
             return;
         }
@@ -138,8 +141,6 @@ public class Trap : MonoBehaviour
 
     IEnumerator RevealAndArm()
     {
-        state = State.Arming;
-
         // Create the permanent reveal light
         var lightObj = new GameObject("TrapRevealLight");
         lightObj.transform.SetParent(transform);
@@ -159,7 +160,7 @@ public class Trap : MonoBehaviour
         float elapsed = 0f;
         while (elapsed < armDelay)
         {
-            elapsed += Time.deltaTime;
+            elapsed += Time.unscaledDeltaTime;
             float t = elapsed / armDelay;
             if (revealLight != null)
                 revealLight.intensity = Mathf.Lerp(0f, revealLightIntensity, t);
@@ -180,7 +181,7 @@ public class Trap : MonoBehaviour
     IEnumerator ApplyDamagePlayerDelayed(Collider2D playerCollider)
     {
         // Small delay so the player can dash through
-        yield return new WaitForSeconds(0.15f);
+        yield return new WaitForSecondsRealtime(0.15f);
 
         // Player dodges the trap if still dashing
         var movement = playerCollider != null ? playerCollider.GetComponent<PlayerMovement>() : null;
@@ -197,7 +198,7 @@ public class Trap : MonoBehaviour
 
     IEnumerator ApplyDamageEnemy(EnemyHealth health)
     {
-        yield return new WaitForSeconds(0.15f);
+        yield return new WaitForSecondsRealtime(0.15f);
         if (health != null)
             health.TakeDamage(damage);
 
@@ -238,7 +239,7 @@ public class TimedLightBurstDestroy : MonoBehaviour
 
     IEnumerator Start()
     {
-        yield return new WaitForSeconds(delay);
+        yield return new WaitForSecondsRealtime(delay);
         var col = GetComponent<Collider2D>();
         if (col != null) col.enabled = false;
         Destroy(gameObject);

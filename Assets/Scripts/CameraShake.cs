@@ -10,6 +10,7 @@ public class CameraShake : MonoBehaviour
 
     void Awake()
     {
+        if (Instance != null && Instance != this) { Destroy(gameObject); return; }
         Instance = this;
         restPosition = transform.localPosition;
     }
@@ -40,7 +41,7 @@ public class CameraShake : MonoBehaviour
 
             transform.localPosition = restPosition + new Vector3(x, y, 0);
 
-            elapsed += Time.deltaTime;
+            elapsed += Time.unscaledDeltaTime;
             yield return null;
         }
 
