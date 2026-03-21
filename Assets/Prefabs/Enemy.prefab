@@ -120,7 +120,7 @@ SpriteRenderer:
   m_GlobalIlluminationMeshLod: 0
   m_SortingLayerID: 0
   m_SortingLayer: 0
-  m_SortingOrder: 0
+  m_SortingOrder: 10
   m_MaskInteraction: 0
   m_Sprite: {fileID: 7482667652216324306, guid: 311925a002f4447b3a28927169b83ea6, type: 3}
   m_Color: {r: 0.9622642, g: 0.099857494, b: 0.099857494, a: 1}
@@ -286,6 +286,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   maxHealth: 3
   hitGlowPrefab: {fileID: 4520355200065602197, guid: 1a9d8339e3c4b4a5eb285329b6c70e4b, type: 3}
+  healthBarDamageRevealSeconds: 2
   currentHealth: 0
 --- !u!114 &8066725665508448386
 MonoBehaviour:
