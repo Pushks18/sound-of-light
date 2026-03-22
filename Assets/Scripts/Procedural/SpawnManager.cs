@@ -5,9 +5,11 @@ public class SpawnManager : MonoBehaviour
 {
     public GameObject enemyPrefab;
     public GameObject trapPrefab;
+    public GameObject keyPrefab;
 
     public int enemyCount = 10;
     public int trapCount = 5;
+    public int keyCount;
 
     public float minDistanceFromPlayer = 6f;
     public float edgeBuffer = 4f;
@@ -69,6 +71,23 @@ public class SpawnManager : MonoBehaviour
 
             Instantiate(trapPrefab, pos, Quaternion.identity);
             spawned++;
+        }
+
+        if (keyPrefab != null && keyCount > 0)
+        {
+            spawned = 0;
+            foreach (var cell in validCells)
+            {
+                if (spawned >= keyCount) break;
+
+                Vector3 pos = builder.CellToWorld(cell);
+
+                if (Vector2.Distance(pos, playerPos) < minDistanceFromPlayer)
+                    continue;
+
+                Instantiate(keyPrefab, pos, Quaternion.identity);
+                spawned++;
+            }
         }
     }
 }

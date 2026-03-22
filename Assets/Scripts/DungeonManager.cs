@@ -10,6 +10,13 @@ public class DungeonManager : MonoBehaviour
     public TilemapRoomBuilder roomBuilder;
     public SpawnManager spawnManager;
 
+    [Header("Room exit key (optional)")]
+    [Tooltip("When enabled, room-exit triggers require a key before loading the next room.")]
+    public bool requireKeyToChangeRoom;
+    [Tooltip("Must match Key.keyID on pickups spawned for this dungeon.")]
+    public string roomExitKeyId = "RedKey";
+    public bool consumeKeyWhenChangingRoom = true;
+
     private bool[,] currentGrid;
     private int currentRoomIndex = 0;
 
@@ -31,11 +38,29 @@ public class DungeonManager : MonoBehaviour
         return;
     }
 
+    if (roomBuilder == null)
+    {
+        Debug.LogError("DungeonManager: roomBuilder is not assigned.");
+        return;
+    }
+
+    if (spawnManager == null)
+    {
+        Debug.LogError("DungeonManager: spawnManager is not assigned.");
+        return;
+    }
+
+    RoomPreset chosen = PickRandomPreset();
+    if (chosen == null)
+    {
+        Debug.LogError("DungeonManager: presets array has no non-null RoomPreset entries. Remove empty slots or assign assets.");
+        return;
+    }
+
     currentRoomIndex++; // 🔥 USE IT HERE
 
     ClearOldDoors();
 
-    RoomPreset chosen = presets[Random.Range(0, presets.Length)];
     currentGrid = chosen.Load();
 
     Debug.Log("Loading room #" + currentRoomIndex + " → " + chosen.name);
@@ -48,6 +73,17 @@ public class DungeonManager : MonoBehaviour
 
     spawnManager.SpawnEntities(roomBuilder);
 }
+
+    RoomPreset PickRandomPreset()
+    {
+        int n = presets.Length;
+        for (int attempt = 0; attempt < n * 4; attempt++)
+        {
+            RoomPreset p = presets[Random.Range(0, n)];
+            if (p != null) return p;
+        }
+        return null;
+    }
 
     void SpawnPlayer(string entryDirection)
 {
@@ -194,7 +230,10 @@ void CreateDoor(DoorCandidate door)
         col.size = new Vector2(size, 1f);
 
     var exit = trigger.AddComponent<RoomExit>();
-exit.direction = door.direction;
+    exit.direction = door.direction;
+    exit.requireKey = requireKeyToChangeRoom;
+    exit.requiredKeyId = roomExitKeyId;
+    exit.consumeKeyOnExit = consumeKeyWhenChangingRoom;
 }
 
 void ClearOldDoors()

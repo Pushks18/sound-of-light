@@ -15,4 +15,9 @@ public class PlayerInventory : MonoBehaviour
     {
         return keys.Contains(keyID);
     }
+
+    public bool ConsumeKey(string keyID)
+    {
+        return keys.Remove(keyID);
+    }
 }
