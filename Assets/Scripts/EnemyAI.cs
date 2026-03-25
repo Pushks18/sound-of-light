@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.Rendering.Universal;
+using System.Collections.Generic;
 
 public class EnemyAI : MonoBehaviour
 {
@@ -7,6 +8,9 @@ public class EnemyAI : MonoBehaviour
     public float baseSpeed = 2f;
     public float boostedSpeed = 8f;
     public float stopDistance = 1.2f;
+
+    [Header("Hunt Mode")]
+    public float pathRecalcInterval = 0.4f;
 
     private Transform player;
     private Rigidbody2D rb;
@@ -18,6 +22,13 @@ public class EnemyAI : MonoBehaviour
     private float markTimer;
 
     private Light2D markLight;
+
+    // Hunt-mode pathfinding state
+    private bool hunting;
+    private TilemapRoomBuilder cachedBuilder;
+    private List<Vector2Int> currentPath;
+    private int pathIndex;
+    private float pathRecalcTimer;
 
     public bool IsActivated => activated;
 
@@ -72,29 +83,95 @@ public class EnemyAI : MonoBehaviour
         if (player == null || !activated || stunTimer > 0f)
         {
             rb.linearVelocity = Vector2.zero;
-            // Reset lit flag — OnTriggerStay2D will set it again if still in light
             isCurrentlyLit = false;
             return;
         }
 
         float distance = Vector2.Distance(transform.position, player.position);
 
-        if (distance > stopDistance)
+        if (distance <= stopDistance)
         {
-            Vector2 dir = (player.position - transform.position).normalized;
+            rb.linearVelocity = Vector2.zero;
+            isCurrentlyLit = false;
+            return;
+        }
 
-            // Speed boost if currently in light
-            float currentSpeed = isCurrentlyLit ? boostedSpeed : baseSpeed;
+        float currentSpeed = isCurrentlyLit ? boostedSpeed : baseSpeed;
 
-            rb.linearVelocity = dir * currentSpeed;
+        if (hunting && cachedBuilder != null)
+        {
+            FollowPath(currentSpeed);
         }
         else
         {
-            rb.linearVelocity = Vector2.zero;
+            Vector2 dir = (player.position - transform.position).normalized;
+            rb.linearVelocity = dir * currentSpeed;
         }
 
         // Reset each physics step — OnTriggerStay2D will re-set if still in light
         isCurrentlyLit = false;
+    }
+
+    void FollowPath(float speed)
+    {
+        pathRecalcTimer -= Time.fixedDeltaTime;
+
+        if (pathRecalcTimer <= 0f || currentPath == null)
+        {
+            RecalculatePath();
+            pathRecalcTimer = pathRecalcInterval;
+        }
+
+        // If pathfinding failed, fall back to direct movement
+        if (currentPath == null || pathIndex >= currentPath.Count)
+        {
+            Vector2 dir = (player.position - transform.position).normalized;
+            rb.linearVelocity = dir * speed;
+            return;
+        }
+
+        Vector3 waypoint = cachedBuilder.CellToWorld(currentPath[pathIndex]);
+
+        // Advance past waypoints we're already close to
+        while (pathIndex < currentPath.Count - 1 &&
+               Vector2.Distance(transform.position, waypoint) < 0.5f)
+        {
+            pathIndex++;
+            waypoint = cachedBuilder.CellToWorld(currentPath[pathIndex]);
+        }
+
+        Vector2 moveDir = ((Vector2)waypoint - (Vector2)transform.position).normalized;
+        rb.linearVelocity = moveDir * speed;
+    }
+
+    void RecalculatePath()
+    {
+        if (cachedBuilder == null || player == null) return;
+
+        Vector2Int startCell = cachedBuilder.WorldToCell(transform.position);
+        Vector2Int goalCell = cachedBuilder.WorldToCell(player.position);
+
+        currentPath = GridPathfinder.FindPath(startCell, goalCell, cachedBuilder.IsFloor);
+        pathIndex = 1; // skip the cell we're already standing on
+    }
+
+    /// <summary>
+    /// Forces this enemy into hunt mode: activates immediately and
+    /// navigates around walls using A* pathfinding.
+    /// </summary>
+    public void ActivateHunt()
+    {
+        if (hunting) return;
+
+        activated = true;
+        hunting = true;
+
+        if (cachedBuilder == null)
+            cachedBuilder = Object.FindAnyObjectByType<TilemapRoomBuilder>();
+
+        // Recalculate path immediately
+        RecalculatePath();
+        pathRecalcTimer = pathRecalcInterval;
     }
 
     private void OnTriggerStay2D(Collider2D other)
@@ -125,5 +202,10 @@ public class EnemyAI : MonoBehaviour
     public bool IsLit()
     {
         return isCurrentlyLit;
+    }
+
+    public bool IsHunting()
+    {
+        return hunting;
     }
 }

@@ -11,8 +11,16 @@ public class PlayerLightWave : MonoBehaviour
     public float cooldown = 20f;
     public Color waveColor = new Color(1f, 0.95f, 0.8f);
 
+    [Header("Idle Auto-Flash")]
+    [Tooltip("Seconds of no input before an automatic flash fires.")]
+    public float idleFlashDelay = 4f;
+    [Tooltip("Auto-flash uses smaller radius/intensity so it's a hint, not a freebie.")]
+    public float idleFlashRadiusMult = 0.6f;
+    public float idleFlashIntensityMult = 0.5f;
+
     private LightEnergy lightEnergy;
     private float cooldownTimer;
+    private float idleTimer;
 
     void Start()
     {
@@ -25,6 +33,23 @@ public class PlayerLightWave : MonoBehaviour
         {
             cooldownTimer -= Time.deltaTime;
             GameUIManager.Instance?.UpdateFlash(cooldownTimer > 0f ? cooldownTimer : 0f);
+        }
+
+        // Track idle time — any key/mouse resets it
+        // Skip idle flash if game has ended (portal sequence, death screen)
+        bool gameActive = GameManager.Instance == null || !GameManager.Instance.gameEnded;
+        if (!gameActive || Input.anyKey || Input.GetAxis("Mouse X") != 0f || Input.GetAxis("Mouse Y") != 0f)
+        {
+            idleTimer = 0f;
+        }
+        else
+        {
+            idleTimer += Time.deltaTime;
+            if (idleTimer >= idleFlashDelay)
+            {
+                EmitIdleFlash();
+                idleTimer = 0f;
+            }
         }
 
         if (Input.GetKeyDown(KeyCode.L) && cooldownTimer <= 0f)
@@ -49,6 +74,36 @@ public class PlayerLightWave : MonoBehaviour
                 StatusHUD.Instance?.StartFlashCooldown(cooldown);
             }
         }
+    }
+
+    void EmitIdleFlash()
+    {
+        // Free auto-flash — smaller and dimmer than a real flash, no cooldown/ammo cost
+        var waveObj = new GameObject("IdleFlash");
+        waveObj.transform.position = transform.position;
+        waveObj.tag = "LightSource";
+
+        float radius = waveRadius * idleFlashRadiusMult;
+        float intensity = waveIntensity * idleFlashIntensityMult;
+
+        var light = waveObj.AddComponent<Light2D>();
+        light.lightType = Light2D.LightType.Point;
+        light.color = new Color(0.8f, 0.85f, 1f); // cooler tint to distinguish from manual flash
+        light.intensity = intensity;
+        light.pointLightOuterRadius = radius;
+        light.pointLightInnerRadius = radius * 0.3f;
+        light.pointLightOuterAngle = 360f;
+        light.pointLightInnerAngle = 360f;
+        light.shadowsEnabled = true;
+        light.falloffIntensity = 0.5f;
+
+        var collider = waveObj.AddComponent<CircleCollider2D>();
+        collider.isTrigger = true;
+        collider.radius = radius;
+
+        var fader = waveObj.AddComponent<LightWaveFader>();
+        fader.duration = waveDuration * 0.5f; // shorter duration
+        fader.startIntensity = intensity;
     }
 
     void EmitLightWave()

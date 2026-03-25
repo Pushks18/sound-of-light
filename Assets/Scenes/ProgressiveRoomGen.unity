@@ -169,15 +169,37 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 7b562960835be4d448d315e2ba7dbf80, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::DungeonManager
-  presets:
-  - {fileID: 11400000, guid: 84601f6ebda6544ceb12c14c2328754c, type: 2}
-  - {fileID: 11400000, guid: e3aa22d7a21a94698b37ffd68ab3d33f, type: 2}
-  - {fileID: 11400000, guid: 3ba00c602a82e4207bab5d8536d047ab, type: 2}
+  presets: []
   roomBuilder: {fileID: 2049937595}
   spawnManager: {fileID: 207522361}
-  requireKeyToChangeRoom: 1
+  requireKeyToChangeRoom: 0
   roomExitKeyId: RedKey
   consumeKeyWhenChangingRoom: 1
+  progressiveMode: 1
+  startWidth: 30
+  startHeight: 22
+  startEnemies: 3
+  startTraps: 1
+  widthGrowth: 4
+  heightGrowth: 3
+  maxWidth: 65
+  maxHeight: 45
+  enemyGrowthPerRoom: 1
+  trapGrowthPerRoom: 0.5
+  maxEnemies: 20
+  maxTraps: 12
+  healPerFloor: 3
+  healDecay: 1
+  minHeal: 1
+  spawnFlashRadius: 10
+  spawnFlashIntensity: 2
+  spawnFlashDuration: 3
+  genWalkers: 2
+  genFillGoal: 0.32
+  genCarveRadius: 1
+  enemyPrefab: {fileID: 1660624364064054240, guid: cc69393cf33acc94b905039bfa9b28e9, type: 3}
+  trapPrefab: {fileID: 8734501928374650001, guid: fab441304dbe74efda05301866f37865, type: 3}
+  keyPrefab: {fileID: 2788963024019888239, guid: 898eb717fa5aa493388ed28daed49fbe, type: 3}
 --- !u!4 &207522363
 Transform:
   m_ObjectHideFlags: 0

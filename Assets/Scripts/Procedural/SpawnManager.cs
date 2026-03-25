@@ -12,14 +12,21 @@ public class SpawnManager : MonoBehaviour
     public int keyCount;
 
     public float minDistanceFromPlayer = 6f;
+    public float minDistanceBetweenEnemies = 4f;
     public float edgeBuffer = 4f;
 
-    public void SpawnEntities(TilemapRoomBuilder builder)
+    [Header("Trap Placement Rules")]
+    public TrapPlacement.Rules trapRules = TrapPlacement.Rules.Default;
+
+    /// <summary>
+    /// Spawns enemies, traps, and keys. Returns the number of enemies spawned.
+    /// </summary>
+    public int SpawnEntities(TilemapRoomBuilder builder)
     {
-        if (builder.FloorCells.Count == 0) return;
+        if (builder.FloorCells.Count == 0) return 0;
 
         var player = GameObject.FindGameObjectWithTag("Player");
-        if (player == null) return;
+        if (player == null) return 0;
 
         Vector2 playerPos = player.transform.position;
 
@@ -30,14 +37,13 @@ public class SpawnManager : MonoBehaviour
 
         foreach (var cell in builder.FloorCells)
         {
-            // 🔥 remove edge cells
             if (cell.x < edgeBuffer || cell.x > w - edgeBuffer) continue;
             if (cell.y < edgeBuffer || cell.y > h - edgeBuffer) continue;
 
             validCells.Add(cell);
         }
 
-        // 🔥 shuffle
+        // Shuffle for enemy/key placement
         for (int i = 0; i < validCells.Count; i++)
         {
             int j = Random.Range(i, validCells.Count);
@@ -46,33 +52,55 @@ public class SpawnManager : MonoBehaviour
             validCells[j] = temp;
         }
 
+        // --- Spawn enemies ---
         int spawned = 0;
+        List<Vector3> enemyPositions = new List<Vector3>();
 
-        foreach (var cell in validCells)
+        if (enemyPrefab != null)
         {
-            if (spawned >= enemyCount) break;
+            float minEnemyDistSq = minDistanceBetweenEnemies * minDistanceBetweenEnemies;
 
-            Vector3 pos = builder.CellToWorld(cell);
+            foreach (var cell in validCells)
+            {
+                if (spawned >= enemyCount) break;
 
-            if (Vector2.Distance(pos, playerPos) < minDistanceFromPlayer)
-                continue;
+                Vector3 pos = builder.CellToWorld(cell);
 
-            Instantiate(enemyPrefab, pos, Quaternion.identity);
-            spawned++;
+                if (Vector2.Distance(pos, playerPos) < minDistanceFromPlayer)
+                    continue;
+
+                // Enforce spacing between enemies
+                bool tooClose = false;
+                foreach (var ep in enemyPositions)
+                {
+                    if (((Vector2)(pos - ep)).sqrMagnitude < minEnemyDistSq)
+                    { tooClose = true; break; }
+                }
+                if (tooClose) continue;
+
+                Instantiate(enemyPrefab, pos, Quaternion.identity);
+                enemyPositions.Add(pos);
+                spawned++;
+            }
         }
 
-        spawned = 0;
+        int enemiesSpawned = spawned;
 
-        foreach (var cell in validCells)
+        // --- Spawn traps using placement rules ---
+        if (trapPrefab != null && trapCount > 0)
         {
-            if (spawned >= trapCount) break;
+            var trapCells = TrapPlacement.PickTrapCells(
+                validCells, builder, trapCount,
+                playerPos, enemyPositions, trapRules);
 
-            Vector3 pos = builder.CellToWorld(cell);
-
-            Instantiate(trapPrefab, pos, Quaternion.identity);
-            spawned++;
+            foreach (var cell in trapCells)
+            {
+                Vector3 pos = builder.CellToWorld(cell);
+                Instantiate(trapPrefab, pos, Quaternion.identity);
+            }
         }
 
+        // --- Spawn keys ---
         if (keyPrefab != null && keyCount > 0)
         {
             spawned = 0;
@@ -89,5 +117,7 @@ public class SpawnManager : MonoBehaviour
                 spawned++;
             }
         }
+
+        return enemiesSpawned;
     }
 }

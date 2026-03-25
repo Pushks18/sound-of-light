@@ -7,7 +7,6 @@ public class PlayerSlash : MonoBehaviour
     public float slashAngle = 120f;
     public float slashDuration = 0.3f;
     public int slashDamage = 2;
-    public float energyCost = 3f;
     public float cooldown = 0.15f;
 
     [Header("Light Settings")]
@@ -19,7 +18,6 @@ public class PlayerSlash : MonoBehaviour
     public Color arcEdgeColor = new Color(1f, 1f, 0.8f, 0.8f);
 
     private PlayerMovement playerMovement;
-    private LightEnergy lightEnergy;
     private float cooldownTimer;
 
     // Cached shared resources to avoid per-use Shader.Find and Texture2D allocations
@@ -29,7 +27,6 @@ public class PlayerSlash : MonoBehaviour
     void Start()
     {
         playerMovement = GetComponent<PlayerMovement>();
-        lightEnergy = GetComponent<LightEnergy>();
     }
 
     void Update()
@@ -39,11 +36,8 @@ public class PlayerSlash : MonoBehaviour
 
         if (Input.GetKeyDown(KeyCode.J) && cooldownTimer <= 0f)
         {
-            if (lightEnergy != null && lightEnergy.TrySpend(energyCost))
-            {
-                PerformSlash();
-                cooldownTimer = cooldown;
-            }
+            PerformSlash();
+            cooldownTimer = cooldown;
         }
     }
 

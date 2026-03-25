@@ -16,6 +16,11 @@ public class GameManager : MonoBehaviour
     public int enemyCount;
     public bool gameEnded { get; private set; } = false;
     private bool playerWon = false;
+    private bool huntModeActivated = false;
+
+    [Header("Hunt Mode")]
+    [Tooltip("When this many enemies (or fewer) remain, they all activate and pathfind to the player.")]
+    public int huntModeThreshold = 3;
 
     void Awake()
     {
@@ -61,6 +66,16 @@ public class GameManager : MonoBehaviour
         }
     }
 
+    /// <summary>Reset state for a new room in endless mode.</summary>
+    public void ResetForNewRoom(int newEnemyCount)
+    {
+        gameEnded = false;
+        huntModeActivated = false;
+        enemyCount = newEnemyCount;
+        GameUIManager.Instance?.UpdateEnemyCount(enemyCount);
+        StatusHUD.Instance?.UpdateEnemies(enemyCount);
+    }
+
     public void EnemyKilled()
     {
         Debug.Log("EnemyKilled() called");
@@ -70,10 +85,32 @@ public class GameManager : MonoBehaviour
         GameUIManager.Instance?.UpdateEnemyCount(enemyCount);
         StatusHUD.Instance?.UpdateEnemies(enemyCount);
 
+        // Trigger hunt mode once when few enemies remain
+        if (!huntModeActivated && enemyCount > 0 && enemyCount <= huntModeThreshold)
+        {
+            huntModeActivated = true;
+            ActivateHuntMode();
+        }
+
         if (enemyCount <= 0)
         {
-            PlayerWon();
+            // In endless mode, spawn a portal that sucks the player to the next room
+            if (DungeonManager.Instance != null)
+                RoomClearPortal.Spawn();
+            else
+                PlayerWon();
         }
+    }
+
+    void ActivateHuntMode()
+    {
+        var enemies = FindObjectsByType<EnemyAI>(FindObjectsSortMode.None);
+        foreach (var enemy in enemies)
+        {
+            if (enemy != null && enemy.enabled)
+                enemy.ActivateHunt();
+        }
+        Debug.Log($"[Hunt Mode] {enemies.Length} enemies now hunting the player");
     }
 
     public void PlayerDied()

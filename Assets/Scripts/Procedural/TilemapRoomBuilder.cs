@@ -22,8 +22,7 @@ public class TilemapRoomBuilder : MonoBehaviour
     public Tilemap doorTilemap;
 
     public int width;
-public int height;
-
+    public int height;
 
     [Header("Tile assets (assign in Inspector)")]
     public TileBase floorTile;
@@ -56,9 +55,9 @@ public int height;
     /// grid[x,y] == false → wall  tile
     /// </summary>
     public void BuildFromGrid(bool[,] grid, int w, int h)
-{
-    width = w;
-    height = h;
+    {
+        width = w;
+        height = h;
         if (floorTile == null || wallTile == null)
         {
             Debug.LogError("[TilemapRoomBuilder] floorTile or wallTile is not assigned!", this);
@@ -111,15 +110,11 @@ public int height;
     }
 
     public void SetDoorCell(Vector2Int cell)
-{
-    Vector3Int tilePos = new Vector3Int(cell.x, cell.y, 0);
-
-    // remove wall
-    wallTilemap.SetTile(tilePos, null);
-
-    // place door tile
-    doorTilemap.SetTile(tilePos, doorTile);
-}
+    {
+        Vector3Int tilePos = new Vector3Int(cell.x, cell.y, 0);
+        wallTilemap.SetTile(tilePos, null);
+        doorTilemap.SetTile(tilePos, doorTile);
+    }
 
     // ------------------------------------------------------------------ utility
 
@@ -139,4 +134,13 @@ public int height;
     public Vector3 CellToWorld(Vector2Int cell)
         => floorTilemap.CellToWorld(new Vector3Int(cell.x, cell.y, 0))
            + floorTilemap.cellSize * 0.5f;
+
+    /// <summary>
+    /// Converts a world position to the nearest tilemap cell coordinate.
+    /// </summary>
+    public Vector2Int WorldToCell(Vector3 worldPos)
+    {
+        Vector3Int cell = floorTilemap.WorldToCell(worldPos);
+        return new Vector2Int(cell.x, cell.y);
+    }
 }

@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using UnityEngine.UI;
 using System.Collections;
 
 public class PlayerHealth : MonoBehaviour
@@ -106,28 +107,33 @@ public class PlayerHealth : MonoBehaviour
         GameManager.Instance?.PlayerDied();
 
         var deathScreen = FindAnyObjectByType<DeathScreen>();
-        if (deathScreen != null)
+        if (deathScreen == null)
         {
-            deathScreen.Show();
-
-            if (sr != null) sr.enabled = false;
-
-            var col = GetComponent<Collider2D>();
-            if (col != null) col.enabled = false;
-
-            var rb = GetComponent<Rigidbody2D>();
-            if (rb != null) rb.linearVelocity = Vector2.zero;
-
-            foreach (var mb in GetComponents<MonoBehaviour>())
-            {
-                if (mb != this) mb.enabled = false;
-            }
-
-            enabled = false;
+            // Create a DeathScreen at runtime for scenes that don't have one
+            var canvasObj = new GameObject("DeathScreenCanvas");
+            var canvas = canvasObj.AddComponent<Canvas>();
+            canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+            canvas.sortingOrder = 100;
+            canvasObj.AddComponent<CanvasScaler>();
+            canvasObj.AddComponent<GraphicRaycaster>();
+            deathScreen = canvasObj.AddComponent<DeathScreen>();
         }
-        else
+
+        deathScreen.Show();
+
+        if (sr != null) sr.enabled = false;
+
+        var col = GetComponent<Collider2D>();
+        if (col != null) col.enabled = false;
+
+        var rb = GetComponent<Rigidbody2D>();
+        if (rb != null) rb.linearVelocity = Vector2.zero;
+
+        foreach (var mb in GetComponents<MonoBehaviour>())
         {
-            Destroy(gameObject);
+            if (mb != this) mb.enabled = false;
         }
+
+        enabled = false;
     }
 }
