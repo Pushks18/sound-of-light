@@ -28,6 +28,9 @@ public class PlayerMovement : MonoBehaviour
     public Vector2 DashDirection => dashDirection;
     public event Action OnDashStart;
 
+    [SerializeField] private Transform triangle;
+    [SerializeField] private float triangleRotationOffset = 0f;
+
     void Start()
     {
         rb = GetComponent<Rigidbody2D>();
@@ -49,6 +52,7 @@ public class PlayerMovement : MonoBehaviour
         // Update aim to last movement direction
         if (moveInput != Vector2.zero)
             aimDirection = moveInput;
+            UpdateTriangleRotation();
 
         if (dashCooldownTimer > 0f)
             dashCooldownTimer -= Time.unscaledDeltaTime;
@@ -108,5 +112,14 @@ public class PlayerMovement : MonoBehaviour
             rb.linearVelocity = dashDirection * dashSpeed;
         else
             rb.linearVelocity = moveInput * moveSpeed;
+    }
+
+    void UpdateTriangleRotation()
+    {
+        if (triangle == null) return;
+        if (aimDirection == Vector2.zero) return;
+
+        float angle = Mathf.Atan2(aimDirection.y, aimDirection.x) * Mathf.Rad2Deg;
+        triangle.rotation = Quaternion.Euler(0f, 0f, angle + triangleRotationOffset);
     }
 }

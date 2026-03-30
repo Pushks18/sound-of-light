@@ -24,7 +24,7 @@ public class PlayerDash : MonoBehaviour
     private const float contactRadius = 2f;
 
     private PlayerMovement playerMovement;
-    private SpriteRenderer playerSprite;
+    [SerializeField] private SpriteRenderer playerSprite;
     private float trailSpawnTimer;
     private float shadowSpawnTimer;
     private HashSet<int> hitEnemiesThisDash;
@@ -33,7 +33,7 @@ public class PlayerDash : MonoBehaviour
     void Start()
     {
         playerMovement = GetComponent<PlayerMovement>();
-        playerSprite = GetComponent<SpriteRenderer>();
+        //playerSprite = GetComponent<SpriteRenderer>();
         hitEnemiesThisDash = new HashSet<int>();
 
         if (playerMovement != null)
@@ -111,9 +111,9 @@ public class PlayerDash : MonoBehaviour
             return;
 
         var shadowObj = new GameObject("DashShadow");
-        shadowObj.transform.position = transform.position;
-        shadowObj.transform.rotation = transform.rotation;
-        shadowObj.transform.localScale = transform.lossyScale;
+        shadowObj.transform.position = playerSprite.transform.position;
+        shadowObj.transform.rotation = playerSprite.transform.rotation;
+        shadowObj.transform.localScale = playerSprite.transform.lossyScale;
 
         var sr = shadowObj.AddComponent<SpriteRenderer>();
         sr.sprite = playerSprite.sprite;
@@ -121,6 +121,9 @@ public class PlayerDash : MonoBehaviour
         sr.sortingLayerID = playerSprite.sortingLayerID;
         sr.sortingOrder = playerSprite.sortingOrder - 1;
         sr.material = playerSprite.material;
+
+        sr.flipX = playerSprite.flipX;
+        sr.flipY = playerSprite.flipY;
 
         var fader = shadowObj.AddComponent<ShadowAfterImageFader>();
         fader.duration = shadowDuration;

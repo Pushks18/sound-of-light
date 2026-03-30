@@ -36,13 +36,13 @@ public class MainMenuController : MonoBehaviour
 
     public void LoadGame()
     {
-        Debug.Log("Play clicked");
+        //Debug.Log("Play clicked");
         SceneManager.LoadScene("GameScene");
     }
 
     public void LoadEndless()
     {
-        Debug.Log("Endless clicked");
+        //Debug.Log("Endless clicked");
         SceneManager.LoadScene("ProgressiveRoomGen");
     }
 

@@ -386,7 +386,6 @@ public class DungeonManager : MonoBehaviour
         int heal = Mathf.Max(healPerFloor - healDecay * (currentRoomIndex - 2), minHeal);
         hp.currentHealth = Mathf.Min(hp.currentHealth + heal, hp.maxHealth);
         StatusHUD.Instance?.UpdateHP(hp.currentHealth, hp.maxHealth);
-        GameUIManager.Instance?.UpdateHP(hp.currentHealth);
         Debug.Log($"Healed {heal} HP (now {hp.currentHealth}/{hp.maxHealth})");
     }
 

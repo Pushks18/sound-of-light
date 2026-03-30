@@ -127,5 +127,6 @@ public class EnemyHealth : MonoBehaviour
         }
 
         Destroy(gameObject);
+        StatusHUD.Instance?.DecrementEnemies();
     }
 }

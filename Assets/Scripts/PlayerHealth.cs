@@ -47,16 +47,6 @@ public class PlayerHealth : MonoBehaviour
         iFrameTimer = iFrameDuration;
         currentHealth -= dmg;
 
-        // 🔥 Tutorial safety: never go below 1 HP
-        /*if (SceneManager.GetActiveScene().name == "TutorialScene")
-        {
-            if (currentHealth < 1)
-            {
-                currentHealth = 1;
-            }
-        }*/
-
-        GameUIManager.Instance?.UpdateHP(currentHealth);
         StatusHUD.Instance?.UpdateHP(currentHealth, maxHealth);
 
         // Flash red when hit
