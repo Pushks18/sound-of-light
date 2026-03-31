@@ -18,6 +18,9 @@ public class GameManager : MonoBehaviour
     private bool playerWon = false;
     private bool huntModeActivated = false;
 
+    [Header("Boss Fight")]
+    public bool isBossFight = false;
+
     [Header("Hunt Mode")]
     [Tooltip("When this many enemies (or fewer) remain, they all activate and pathfind to the player.")]
     public int huntModeThreshold = 3;
@@ -35,6 +38,9 @@ public class GameManager : MonoBehaviour
         // Count enemies immediately
         enemyCount = GameObject.FindGameObjectsWithTag("Enemy").Length;
 
+        // We delay UI update to next frame to ensure GameUIManager exists
+        StartCoroutine(InitializeUI());
+
         if (endText != null)
             endText.gameObject.SetActive(false);
     }
@@ -45,6 +51,13 @@ public class GameManager : MonoBehaviour
         {
             Instance = null;
         }
+    }
+
+    System.Collections.IEnumerator InitializeUI()
+    {
+        yield return null; // wait one frame
+        GameUIManager.Instance?.UpdateEnemyCount(enemyCount);
+        StatusHUD.Instance?.UpdateEnemies();
     }
 
     void Update()
@@ -62,12 +75,18 @@ public class GameManager : MonoBehaviour
         gameEnded = false;
         huntModeActivated = false;
         enemyCount = newEnemyCount;
+        GameUIManager.Instance?.UpdateEnemyCount(enemyCount);
+        StatusHUD.Instance?.UpdateEnemies();
     }
 
     public void EnemyKilled()
     {
         Debug.Log("EnemyKilled() called");
+
         enemyCount--;
+
+        GameUIManager.Instance?.UpdateEnemyCount(enemyCount);
+        StatusHUD.Instance?.UpdateEnemies();
 
         // Trigger hunt mode once when few enemies remain
         if (!huntModeActivated && enemyCount > 0 && enemyCount <= huntModeThreshold)
@@ -78,12 +97,25 @@ public class GameManager : MonoBehaviour
 
         if (enemyCount <= 0)
         {
+            // Boss fight victory is handled by BossDefeated(), not enemy count
+            if (isBossFight) return;
+
             // In endless mode, spawn a portal that sucks the player to the next room
             if (DungeonManager.Instance != null)
                 RoomClearPortal.Spawn();
             else
                 PlayerWon();
         }
+    }
+
+    /// <summary>
+    /// Called by boss scripts when the boss is defeated.
+    /// Triggers the same victory sequence as PlayerWon() but independently
+    /// of enemyCount, so it works even when isBossFight = true.
+    /// </summary>
+    public void BossDefeated()
+    {
+        PlayerWon();
     }
 
     void ActivateHuntMode()

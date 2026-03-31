@@ -11,9 +11,10 @@ public class StatusHUD : MonoBehaviour
     private float flashMaxCD = 20f;
     private int enemiesLeft = 0;
 
-    private TextMeshProUGUI hpLabel;
-    private TextMeshProUGUI flashLabel;
-    private TextMeshProUGUI enemyLabel;
+    [Header("HUD Labels (assign in Inspector, or leave blank to auto-find by name)")]
+    [SerializeField] private TextMeshProUGUI hpLabel;
+    [SerializeField] private TextMeshProUGUI flashLabel;
+    [SerializeField] private TextMeshProUGUI enemyLabel;
 
     private static readonly Color ColGreen  = new Color(0.35f, 1f,   0.45f, 1f);
     private static readonly Color ColYellow = new Color(1f,   0.85f, 0.2f,  1f);
@@ -78,33 +79,22 @@ public class StatusHUD : MonoBehaviour
 
     void BindHUD()
     {
-        var canvasGO = GameObject.Find("Canvas");
-        if (canvasGO == null)
+        // If all three are already assigned in Inspector, nothing to do
+        if (hpLabel != null && flashLabel != null && enemyLabel != null) return;
+
+        // Fallback: search all TMP components in the scene by GameObject name
+        var all = FindObjectsByType<TextMeshProUGUI>(FindObjectsSortMode.None);
+        foreach (var t in all)
         {
-            Debug.LogError("StatusHUD: Could not find GameObject named 'Canvas'.");
-            enabled = false;
-            return;
+            string n = t.gameObject.name;
+            if (hpLabel    == null && n == "HP")      hpLabel    = t;
+            if (flashLabel == null && n == "Flash" && t.transform.parent?.name == "StatusContainer") flashLabel = t;
+            if (enemyLabel == null && n == "Enemies") enemyLabel = t;
         }
 
-        hpLabel = FindTMP(canvasGO.transform, "StatusContainer/HP");
-        flashLabel = FindTMP(canvasGO.transform, "StatusContainer/Flash");
-        enemyLabel = FindTMP(canvasGO.transform, "StatusContainer/Enemies");
-    }
-
-    TextMeshProUGUI FindTMP(Transform root, string path)
-    {
-        var t = root.Find(path);
-        if (t == null)
-        {
-            Debug.LogError($"StatusHUD: Could not find path '{path}' under Canvas.");
-            return null;
-        }
-
-        var tmp = t.GetComponent<TextMeshProUGUI>();
-        if (tmp == null)
-            Debug.LogError($"StatusHUD: '{path}' has no TextMeshProUGUI component.");
-
-        return tmp;
+        if (hpLabel    == null) Debug.LogWarning("StatusHUD: Could not find HP label.");
+        if (flashLabel == null) Debug.LogWarning("StatusHUD: Could not find Flash label.");
+        if (enemyLabel == null) Debug.LogWarning("StatusHUD: Could not find Enemies label.");
     }
 
     void RefreshHP()

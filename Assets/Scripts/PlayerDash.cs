@@ -33,7 +33,8 @@ public class PlayerDash : MonoBehaviour
     void Start()
     {
         playerMovement = GetComponent<PlayerMovement>();
-        //playerSprite = GetComponent<SpriteRenderer>();
+        if (playerSprite == null)
+            playerSprite = GetComponent<SpriteRenderer>();
         hitEnemiesThisDash = new HashSet<int>();
 
         if (playerMovement != null)
@@ -156,6 +157,22 @@ public class PlayerDash : MonoBehaviour
 
                 var ai = enemy.GetComponent<EnemyAI>();
                 if (ai != null) ai.Stun(stunDuration);
+            }
+        }
+
+        // Check Vesper boss by direct distance (VesperAI is not EnemyHealth)
+        var vesper = FindFirstObjectByType<VesperAI>();
+        if (vesper != null)
+        {
+            int vid = vesper.gameObject.GetInstanceID();
+            if (!hitEnemiesThisDash.Contains(vid))
+            {
+                float dist = DistToSegment(vesper.transform.position, prevPos, currentPos);
+                if (dist <= contactRadius)
+                {
+                    hitEnemiesThisDash.Add(vid);
+                    vesper.TakeDashDamage(1);
+                }
             }
         }
 

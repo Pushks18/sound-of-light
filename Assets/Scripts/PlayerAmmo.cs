@@ -14,9 +14,10 @@ public class PlayerAmmo : MonoBehaviour
     public int Dashes  { get; private set; }
     public int Flashes { get; private set; }
 
-    private TextMeshProUGUI bulletLabel;
-    private TextMeshProUGUI dashLabel;
-    private TextMeshProUGUI flashLabel;
+    [Header("HUD Labels (assign in Inspector, or leave blank to auto-find by name)")]
+    [SerializeField] private TextMeshProUGUI bulletLabel;
+    [SerializeField] private TextMeshProUGUI dashLabel;
+    [SerializeField] private TextMeshProUGUI flashLabel;
 
     private static readonly Color ColAvailable = new Color(1f, 1f, 1f, 1f);
     private static readonly Color ColEmpty = new Color(1f, 0.3f, 0.3f, 0.8f);
@@ -131,33 +132,22 @@ public class PlayerAmmo : MonoBehaviour
 
     void BindHUD()
     {
-        var canvasGO = GameObject.Find("Canvas");
-        if (canvasGO == null)
+        // If all three are already assigned in Inspector, nothing to do
+        if (bulletLabel != null && dashLabel != null && flashLabel != null) return;
+
+        // Fallback: search all TMP components in the scene by GameObject name
+        var all = FindObjectsByType<TextMeshProUGUI>(FindObjectsSortMode.None);
+        foreach (var t in all)
         {
-            Debug.LogError("PlayerAmmo: Could not find GameObject named 'Canvas'.");
-            enabled = false;
-            return;
+            string n = t.gameObject.name;
+            if (bulletLabel == null && n == "Bullets") bulletLabel = t;
+            if (dashLabel   == null && n == "Dash")    dashLabel   = t;
+            if (flashLabel  == null && n == "Flash" && t.transform.parent?.name == "AmmoContainer") flashLabel = t;
         }
 
-        bulletLabel = FindTMP(canvasGO.transform, "AmmoContainer/Bullets");
-        dashLabel   = FindTMP(canvasGO.transform, "AmmoContainer/Dash");
-        flashLabel  = FindTMP(canvasGO.transform, "AmmoContainer/Flash");
-    }
-
-    TextMeshProUGUI FindTMP(Transform root, string path)
-    {
-        var t = root.Find(path);
-        if (t == null)
-        {
-            Debug.LogError($"PlayerAmmo: Could not find path '{path}' under Canvas.");
-            return null;
-        }
-
-        var tmp = t.GetComponent<TextMeshProUGUI>();
-        if (tmp == null)
-            Debug.LogError($"PlayerAmmo: '{path}' has no TextMeshProUGUI component.");
-
-        return tmp;
+        if (bulletLabel == null) Debug.LogWarning("PlayerAmmo: Could not find Bullets label.");
+        if (dashLabel   == null) Debug.LogWarning("PlayerAmmo: Could not find Dash label.");
+        if (flashLabel  == null) Debug.LogWarning("PlayerAmmo: Could not find Flash label.");
     }
 
     void RefreshHUD()
