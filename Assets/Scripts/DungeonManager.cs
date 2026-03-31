@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.Rendering.Universal;
+using System.Collections;
 using System.Collections.Generic;
 
 public class DungeonManager : MonoBehaviour
@@ -101,12 +102,17 @@ public class DungeonManager : MonoBehaviour
             player.AddComponent<RoomCounterHUD>();
     }
 
-    public void LoadNextRoom(string entryDirection)
+    public Coroutine LoadNextRoom(string entryDirection)
+    {
+        return StartCoroutine(LoadNextRoomRoutine(entryDirection));
+    }
+
+    IEnumerator LoadNextRoomRoutine(string entryDirection)
     {
         if (roomBuilder == null)
         {
             Debug.LogError("DungeonManager: roomBuilder is not assigned.");
-            return;
+            yield break;
         }
 
         currentRoomIndex++;
@@ -114,15 +120,29 @@ public class DungeonManager : MonoBehaviour
         ClearOldDoors();
         ClearOldEntities();
 
-        int newEnemyCount;
+        // Build tilemap first (generates colliders)
+        if (progressiveMode)
+            BuildProgressiveRoom();
+        else
+            BuildPresetRoom();
 
+        // Wait a physics frame so TilemapCollider2D finishes rebuilding wall colliders
+        yield return new WaitForFixedUpdate();
+
+        // Now safe to place entities — colliders are solid
+        SpawnPlayer(entryDirection);
+
+        int newEnemyCount;
         if (progressiveMode)
         {
-            newEnemyCount = LoadProgressiveRoom(entryDirection);
+            int room = currentRoomIndex;
+            int enemies = Mathf.Min(startEnemies + enemyGrowthPerRoom * (room - 1), maxEnemies);
+            int traps = Mathf.Min(startTraps + Mathf.FloorToInt(trapGrowthPerRoom * (room - 1)), maxTraps);
+            newEnemyCount = SpawnProgressiveEntities(enemies, traps);
         }
         else
         {
-            newEnemyCount = LoadPresetRoom(entryDirection);
+            newEnemyCount = spawnManager != null ? spawnManager.SpawnEntities(roomBuilder) : 0;
         }
 
         GameManager.Instance?.ResetForNewRoom(newEnemyCount);
@@ -130,35 +150,27 @@ public class DungeonManager : MonoBehaviour
 
         if (progressiveMode)
         {
-            // Heal player between floors
             if (currentRoomIndex > 1)
                 HealPlayer();
-
-            // Fire a flash at spawn point so player can see their surroundings
             EmitSpawnFlash();
         }
     }
 
     // ── Preset-based room loading (original) ────────────────────────────
 
-    int LoadPresetRoom(string entryDirection)
+    void BuildPresetRoom()
     {
         if (presets == null || presets.Length == 0)
         {
             Debug.LogError("No presets assigned!");
-            return 0;
-        }
-        if (spawnManager == null)
-        {
-            Debug.LogError("DungeonManager: spawnManager is not assigned.");
-            return 0;
+            return;
         }
 
         RoomPreset chosen = PickRandomPreset();
         if (chosen == null)
         {
             Debug.LogError("DungeonManager: no valid presets.");
-            return 0;
+            return;
         }
 
         currentGrid = chosen.Load();
@@ -166,30 +178,20 @@ public class DungeonManager : MonoBehaviour
 
         roomBuilder.BuildFromGrid(currentGrid, chosen.width, chosen.height);
         PlaceDoors(chosen.width, chosen.height);
-        SpawnPlayer(entryDirection);
-
-        return spawnManager.SpawnEntities(roomBuilder);
     }
 
     // ── Progressive live generation ─────────────────────────────────────
 
-    int LoadProgressiveRoom(string entryDirection)
+    void BuildProgressiveRoom()
     {
-        // Scale parameters based on room index (room 1 = index 1)
         int room = currentRoomIndex;
         int w = Mathf.Min(startWidth + widthGrowth * (room - 1), maxWidth);
         int h = Mathf.Min(startHeight + heightGrowth * (room - 1), maxHeight);
-        int enemies = Mathf.Min(startEnemies + enemyGrowthPerRoom * (room - 1), maxEnemies);
-        int traps = Mathf.Min(startTraps + Mathf.FloorToInt(trapGrowthPerRoom * (room - 1)), maxTraps);
 
-        Debug.Log($"Progressive room #{room}: {w}x{h}, {enemies} enemies, {traps} traps");
+        Debug.Log($"Progressive room #{room}: {w}x{h}");
 
         currentGrid = GenerateGrid(w, h);
         roomBuilder.BuildFromGrid(currentGrid, w, h);
-        // No doors in progressive mode — portal is the only exit
-        SpawnPlayer(entryDirection);
-
-        return SpawnProgressiveEntities(enemies, traps);
     }
 
     bool[,] GenerateGrid(int w, int h)

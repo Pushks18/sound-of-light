@@ -551,7 +551,7 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: -13.26, y: -1.36, z: 0}
-  m_LocalScale: {x: 0.6352, y: 1.2128, z: 1}
+  m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 664189427}
@@ -585,13 +585,16 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 093c23a3d83bc4ea49fc6749281a1c16, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  moveSpeed: 5
-  dashSpeed: 20
+  m_Name:
+  m_EditorClassIdentifier:
+  moveSpeed: 8
+  dashSpeed: 25
   dashDuration: 0.15
   dashCooldown: 1
   dashEnergyCost: 3
+  pipOffset: 0.45
+  pipRadius: 0.25
+  pipIntensity: 0.15
 --- !u!50 &326784023
 Rigidbody2D:
   serializedVersion: 5
@@ -617,7 +620,7 @@ Rigidbody2D:
     m_Bits: 0
   m_Interpolate: 0
   m_SleepingMode: 1
-  m_CollisionDetection: 0
+  m_CollisionDetection: 1
   m_Constraints: 4
 --- !u!61 &326784024
 BoxCollider2D:
@@ -2033,7 +2036,7 @@ TilemapCollider2D:
   m_CompositeOperation: 1
   m_CompositeOrder: 0
   m_Offset: {x: 0, y: 0}
-  m_MaximumTileChangeCount: 1000
+  m_MaximumTileChangeCount: 5000
   m_ExtrusionFactor: 0
   m_UseDelaunayMesh: 0
 --- !u!483693784 &1927295209

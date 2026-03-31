@@ -187,7 +187,9 @@ public class RoomClearPortal : MonoBehaviour
         if (roomLight != null)
             Destroy(roomLight.gameObject);
 
-        DungeonManager.Instance?.LoadNextRoom("none");
+        // Wait for room build + collider regeneration before fading back in
+        var loadOp = DungeonManager.Instance?.LoadNextRoom("none");
+        if (loadOp != null) yield return loadOp;
 
         // --- Phase 6: Fade back in ---
         elapsed = 0f;

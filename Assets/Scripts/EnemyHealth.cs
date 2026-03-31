@@ -79,7 +79,6 @@ public class EnemyHealth : MonoBehaviour
 
         // Map remaining HP to opacity: full HP = 1.0, 0 HP = 0.0
         float t = (float)currentHealth / maxHealth;
-        // Curve so the fade is more dramatic: 1.0 → 0.7 → 0.35 → 0.0
         float alpha = t * t;
         var c = sr.color;
         c.a = Mathf.Clamp01(alpha);

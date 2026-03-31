@@ -1,15 +1,24 @@
 using UnityEngine;
+using UnityEngine.Rendering.Universal;
 using System;
 
 public class PlayerMovement : MonoBehaviour
 {
-    public float moveSpeed = 30f;
+    public float moveSpeed = 8f;
 
     [Header("Dash (Left Shift)")]
-    public float dashSpeed = 50f;
+    public float dashSpeed = 25f;
     public float dashDuration = 0.15f;
     public float dashCooldown = 1f;
     public float dashEnergyCost = 3f;
+
+    [Header("Aim Indicator")]
+    [Tooltip("Distance from center to the pip (should match half the player's visual size).")]
+    public float pipOffset = 0.45f;
+    [Tooltip("Light radius of the aim pip.")]
+    public float pipRadius = 0.25f;
+    [Tooltip("Light intensity of the aim pip.")]
+    public float pipIntensity = 0.15f;
 
     private Rigidbody2D rb;
     private Vector2 moveInput;
@@ -22,14 +31,13 @@ public class PlayerMovement : MonoBehaviour
     private int playerLayer;
     private int enemyLayer;
 
+    private Transform aimPivot;
+
     /// <summary>Last non-zero movement direction (8-way, normalized).</summary>
     public Vector2 AimDirection => aimDirection;
     public bool IsDashing => dashTimer > 0f;
     public Vector2 DashDirection => dashDirection;
     public event Action OnDashStart;
-
-    [SerializeField] private Transform triangle;
-    [SerializeField] private float triangleRotationOffset = 0f;
 
     void Start()
     {
@@ -41,6 +49,33 @@ public class PlayerMovement : MonoBehaviour
 
         // Ensure clean collision state on scene load (persists across scenes)
         Physics2D.IgnoreLayerCollision(playerLayer, enemyLayer, false);
+
+        CreateAimPip();
+    }
+
+    void CreateAimPip()
+    {
+        // Pivot sits at player center, rotating to orbit the pip around the edge
+        var pivotObj = new GameObject("AimPivot");
+        pivotObj.transform.SetParent(transform);
+        pivotObj.transform.localPosition = Vector3.zero;
+        pivotObj.transform.localRotation = Quaternion.identity;
+        aimPivot = pivotObj.transform;
+
+        // Pip is offset from center — a tiny point light at the player's front edge
+        var pipObj = new GameObject("AimPip");
+        pipObj.transform.SetParent(aimPivot);
+        pipObj.transform.localPosition = new Vector3(0f, pipOffset, 0f);
+        pipObj.transform.localScale = Vector3.one;
+
+        var light = pipObj.AddComponent<Light2D>();
+        light.lightType = Light2D.LightType.Point;
+        light.pointLightOuterRadius = pipRadius;
+        light.pointLightInnerRadius = pipRadius * 0.3f;
+        light.intensity = pipIntensity;
+        light.color = new Color(0.85f, 0.9f, 1f); // cool white — distinct from warm flashlight
+        light.shadowsEnabled = false;
+        light.falloffIntensity = 0.8f;
     }
 
     void Update()
@@ -52,7 +87,8 @@ public class PlayerMovement : MonoBehaviour
         // Update aim to last movement direction
         if (moveInput != Vector2.zero)
             aimDirection = moveInput;
-            UpdateTriangleRotation();
+
+        UpdateAimPip();
 
         if (dashCooldownTimer > 0f)
             dashCooldownTimer -= Time.unscaledDeltaTime;
@@ -114,12 +150,11 @@ public class PlayerMovement : MonoBehaviour
             rb.linearVelocity = moveInput * moveSpeed;
     }
 
-    void UpdateTriangleRotation()
+    void UpdateAimPip()
     {
-        if (triangle == null) return;
-        if (aimDirection == Vector2.zero) return;
+        if (aimPivot == null) return;
 
         float angle = Mathf.Atan2(aimDirection.y, aimDirection.x) * Mathf.Rad2Deg;
-        triangle.rotation = Quaternion.Euler(0f, 0f, angle + triangleRotationOffset);
+        aimPivot.rotation = Quaternion.Euler(0f, 0f, angle - 90f);
     }
 }

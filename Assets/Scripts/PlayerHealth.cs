@@ -22,21 +22,53 @@ public class PlayerHealth : MonoBehaviour
     [SerializeField] private float iFrameDuration = 0.5f;
     private float iFrameTimer = 0f;
 
+    [Header("Enemy Contact")]
+    [Tooltip("Damage dealt when an enemy physically touches the player.")]
+    public int contactDamage = 0;
+    [Tooltip("Knockback force applied when an enemy collides with the player.")]
+    public float knockbackForce = 15f;
+
+    private Rigidbody2D rb;
+
     void Awake()
     {
         currentHealth = maxHealth;
         sr = GetComponent<SpriteRenderer>();
+        rb = GetComponent<Rigidbody2D>();
         if (sr != null)
             originalColor = sr.color;
 
         // Initialise HUD with max HP
         StatusHUD.Instance?.UpdateHP(currentHealth, maxHealth);
+
+        // Ensure singletons exist in every scene
+        if (PauseMenu.Instance == null)
+        {
+            var pmObj = new GameObject("PauseMenu");
+            pmObj.AddComponent<PauseMenu>();
+        }
     }
 
     void Update()
     {
         if (iFrameTimer > 0f)
             iFrameTimer -= Time.deltaTime;
+    }
+
+    void OnCollisionEnter2D(Collision2D collision)
+    {
+        if (!collision.gameObject.CompareTag("Enemy")) return;
+
+        // Knockback away from the enemy
+        if (rb != null)
+        {
+            Vector2 dir = ((Vector2)transform.position - collision.GetContact(0).point).normalized;
+            rb.linearVelocity = Vector2.zero;
+            rb.AddForce(dir * knockbackForce, ForceMode2D.Impulse);
+        }
+
+        if (contactDamage > 0)
+            TakeDamage(contactDamage);
     }
 
     public void TakeDamage(int dmg)
@@ -116,7 +148,6 @@ public class PlayerHealth : MonoBehaviour
         var col = GetComponent<Collider2D>();
         if (col != null) col.enabled = false;
 
-        var rb = GetComponent<Rigidbody2D>();
         if (rb != null) rb.linearVelocity = Vector2.zero;
 
         foreach (var mb in GetComponents<MonoBehaviour>())
