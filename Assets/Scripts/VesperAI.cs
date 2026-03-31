@@ -56,8 +56,9 @@ public class VesperAI : MonoBehaviour
     [SerializeField] int   teleportKHitThreshold  = 3;
     [SerializeField] int   phase2TeleportKHitThreshold = 2;
     [SerializeField] int   teleportDashHitThreshold = 2;
-    [SerializeField] float teleportFadeDuration   = 0.5f;
+    [SerializeField] float teleportFadeDuration    = 0.5f;
     [SerializeField] float teleportEyeRestoreDelay = 0.3f;
+    [SerializeField] float teleportArrivalDuration = 0.5f;  // how long body stays visible at arrival before fading
 
     [Header("Visibility Fade")]
     [SerializeField] float alphaFadeInDuration  = 0.2f;
@@ -68,6 +69,18 @@ public class VesperAI : MonoBehaviour
     [SerializeField] float deathEyeExpandDuration = 0.3f;
     [SerializeField] float deathEyeFadeDuration   = 1f;    // how long eyes take to fade out after radius collapse
     [SerializeField] float deathFadeDelay         = 2f;    // total time before camera pan + BossDefeated()
+
+    [Header("Phase 2 Transition")]
+    [SerializeField] int   phase2TeleportCount        = 3;      // number of teleport+scatter bursts
+    [SerializeField] float phase2TransitionDelay      = 0.5f;   // pause before sequence starts
+    [SerializeField] float phase2TeleportInterval     = 0.7f;   // gap between each teleport burst
+    [SerializeField] Color phase2EyeColor             = new Color(1f, 0.15f, 0.1f, 1f);
+    [SerializeField] float phase2EyeColorFadeDuration = 0.35f;
+
+    [Header("Teleport Eye Effects")]
+    [SerializeField] float eyeGhostFadeDuration      = 0.5f;   // how long departure ghost lingers
+    [SerializeField] float eyeArrivalFlashMultiplier = 4f;     // intensity spike on arrival (×normal)
+    [SerializeField] float eyeArrivalFlashDuration   = 0.35f;  // time to fade back from spike
 
     [Header("References")]
     [SerializeField] GameObject enemyBulletPrefab;  // EnemyBullet prefab
@@ -90,6 +103,7 @@ public class VesperAI : MonoBehaviour
     bool         wasLitLastFrame   = false;
     bool         activationDone    = false;   // one-shot activation sequence guard
 
+    bool         phase2Triggered   = false;
     bool         isTeleporting     = false;
     bool         inSlashStagger    = false;
     float        slashStaggerTimer = 0f;
@@ -349,6 +363,7 @@ public class VesperAI : MonoBehaviour
             new Color(0.65f, 0.65f, 0.65f));
 
         StartCoroutine(HitFlash());
+        CheckPhase2Transition();
 
         // K-hit teleport threshold
         int threshold = IsPhase2 ? phase2TeleportKHitThreshold : teleportKHitThreshold;
@@ -370,6 +385,7 @@ public class VesperAI : MonoBehaviour
         if (healthBar != null) healthBar.SetHealth(health);
         DamageNumber.Spawn((int)amount, transform.position);
         StartCoroutine(HitFlash());
+        CheckPhase2Transition();
 
         if (health <= 0f) { StartCoroutine(DeathSequence()); return; }
 
@@ -389,6 +405,7 @@ public class VesperAI : MonoBehaviour
         if (healthBar != null) healthBar.SetHealth(health);
 
         DamageNumber.Spawn((int)slashDamage, transform.position);
+        CheckPhase2Transition();
 
         // Stagger — only once per teleport cycle
         if (slashStaggerAvailable)
@@ -406,6 +423,191 @@ public class VesperAI : MonoBehaviour
     }
 
     // ── Coroutines ───────────────────────────────────────────────────────────
+
+    void CheckPhase2Transition()
+    {
+        if (phase2Triggered) return;
+        if (health <= 0f) return;   // death takes priority
+        if (!IsPhase2) return;
+        phase2Triggered = true;
+        StartCoroutine(Phase2TransitionSequence());
+    }
+
+    IEnumerator Phase2TransitionSequence()
+    {
+        // Lock out normal behaviour during the cutscene
+        isTeleporting  = true;
+        inSlashStagger = false;
+
+        // Pause player movement
+        DisablePlayerInput();
+
+        // Camera smoothly pans to boss
+        if (bossIntroCam != null)
+            yield return StartCoroutine(bossIntroCam.PanToBossPhase2(transform.position, 0.5f));
+
+        // Health bar shake (1 s, strong) + eye colour fade — simultaneous
+        if (healthBar != null) healthBar.Shake(1f, 14f);
+        StartCoroutine(FadeEyeColor(phase2EyeColor, phase2EyeColorFadeDuration));
+
+        yield return new WaitForSeconds(phase2TransitionDelay);
+
+        // N teleports — cinematic only, no shooting
+        for (int i = 0; i < phase2TeleportCount; i++)
+        {
+            SpawnEyeGhosts();
+
+            SetAlphaTarget(0f, teleportFadeDuration);
+            yield return new WaitForSeconds(teleportFadeDuration);
+
+            transform.position = FindTeleportPosition();
+            bossIntroCam?.SnapToPosition(transform.position);
+
+            yield return new WaitForSeconds(teleportEyeRestoreDelay);
+
+            ApplyAlpha(bodyMaxAlpha);
+            SetAlphaTarget(bodyMaxAlpha, 0.01f);
+            StartCoroutine(EyeArrivalFlash());
+
+            yield return new WaitForSeconds(phase2TeleportInterval);
+        }
+
+        // Reset per-cycle counters so Phase 2 starts clean
+        kHitCount             = 0;
+        dashHitCount          = 0;
+        slashDamageThisCycle  = 0f;
+        meleeProximityTimer   = 0f;
+        slashStaggerAvailable = true;
+        inSlashStagger        = false;
+        vulnerableTimer       = 0f;
+
+        // Camera pans back to player, then player regains control
+        if (bossIntroCam != null && playerTransform != null)
+            yield return StartCoroutine(bossIntroCam.PanBackToPlayer(playerTransform));
+
+        isTeleporting = false;
+        // Body stays at bodyMaxAlpha from the last arrival — Update will fade it naturally.
+
+        EnablePlayerInput();
+    }
+
+    /// <summary>
+    /// Spawn fading ghost copies of both eyes at the current position.
+    /// Call just before the boss starts teleporting so players see where it left from.
+    /// </summary>
+    void SpawnEyeGhosts()
+    {
+        if (eyeLeft  != null) SpawnSingleEyeGhost(eyeLeft);
+        if (eyeRight != null) SpawnSingleEyeGhost(eyeRight);
+    }
+
+    void SpawnSingleEyeGhost(Light2D source)
+    {
+        var go = new GameObject("VesperEyeGhost");
+        go.transform.position = source.transform.position;
+
+        var ghost = go.AddComponent<Light2D>();
+        // Do NOT copy lightType — setting it after AddComponent throws in some Unity versions.
+        // The ghost defaults to Point light which is sufficient for the fade effect.
+        ghost.color                 = source.color;
+        ghost.intensity             = source.intensity;
+        ghost.pointLightOuterRadius = source.pointLightOuterRadius;
+        ghost.pointLightInnerRadius = source.pointLightInnerRadius;
+
+        StartCoroutine(FadeAndDestroyLight(go, ghost, eyeGhostFadeDuration));
+    }
+
+    IEnumerator FadeAndDestroyLight(GameObject go, Light2D light, float duration)
+    {
+        float start   = light.intensity;
+        float elapsed = 0f;
+        while (elapsed < duration)
+        {
+            elapsed += Time.deltaTime;
+            if (light != null)
+                light.intensity = Mathf.Lerp(start, 0f, elapsed / duration);
+            yield return null;
+        }
+        if (go != null) Destroy(go);
+    }
+
+    /// <summary>
+    /// Spike the eye intensity on arrival, then fade back to the current value.
+    /// Gives a clear visual "blink in" even in full darkness.
+    /// </summary>
+    IEnumerator EyeArrivalFlash()
+    {
+        if (eyeLeft == null && eyeRight == null) yield break;
+
+        float baseIntensity = eyeLeft != null ? eyeLeft.intensity : eyeRight.intensity;
+        float peak          = baseIntensity * eyeArrivalFlashMultiplier;
+
+        SetEyeIntensity(peak);
+
+        float elapsed = 0f;
+        while (elapsed < eyeArrivalFlashDuration)
+        {
+            elapsed += Time.deltaTime;
+            SetEyeIntensity(Mathf.Lerp(peak, baseIntensity, elapsed / eyeArrivalFlashDuration));
+            yield return null;
+        }
+        SetEyeIntensity(baseIntensity);
+    }
+
+    IEnumerator FadeEyeColor(Color targetColor, float duration)
+    {
+        Color startLeft  = eyeLeft  != null ? eyeLeft.color  : Color.white;
+        Color startRight = eyeRight != null ? eyeRight.color : Color.white;
+
+        float elapsed = 0f;
+        while (elapsed < duration)
+        {
+            elapsed += Time.deltaTime;
+            float t = Mathf.Clamp01(elapsed / duration);
+            if (eyeLeft  != null) eyeLeft.color  = Color.Lerp(startLeft,  targetColor, t);
+            if (eyeRight != null) eyeRight.color = Color.Lerp(startRight, targetColor, t);
+            yield return null;
+        }
+        if (eyeLeft  != null) eyeLeft.color  = targetColor;
+        if (eyeRight != null) eyeRight.color = targetColor;
+    }
+
+    /// <summary>FireScatter variant that bypasses the isTeleporting guard — used during Phase 2 transition.</summary>
+    void FireScatterForced()
+    {
+        if (enemyBulletPrefab == null) return;
+        int   count     = phase2ScatterBulletCount;
+        float angleStep = 360f / count;
+        for (int i = 0; i < count; i++)
+        {
+            float rotation = angleStep * i - 90f;
+            Instantiate(enemyBulletPrefab, transform.position, Quaternion.Euler(0f, 0f, rotation));
+        }
+    }
+
+    void DisablePlayerInput()
+    {
+        if (playerTransform == null) return;
+        var rb = playerTransform.GetComponent<Rigidbody2D>();
+        if (rb != null) rb.linearVelocity = Vector2.zero;
+        foreach (var mb in playerTransform.GetComponents<MonoBehaviour>())
+        {
+            if (mb is PlayerMovement || mb is PlayerShooting || mb is PlayerSlash ||
+                mb is PlayerDash     || mb is PlayerLightWave || mb is FlashlightAim)
+                mb.enabled = false;
+        }
+    }
+
+    void EnablePlayerInput()
+    {
+        if (playerTransform == null) return;
+        foreach (var mb in playerTransform.GetComponents<MonoBehaviour>())
+        {
+            if (mb is PlayerMovement || mb is PlayerShooting || mb is PlayerSlash ||
+                mb is PlayerDash     || mb is PlayerLightWave || mb is FlashlightAim)
+                mb.enabled = true;
+        }
+    }
 
     IEnumerator ActivationSequence()
     {
@@ -448,31 +650,51 @@ public class VesperAI : MonoBehaviour
         if (isTeleporting) yield break;
         isTeleporting = true;
 
-        // 1. Fade out sprite over teleportFadeDuration
-        SetAlphaTarget(0f, teleportFadeDuration);
-        yield return new WaitForSeconds(teleportFadeDuration);
+        // Phase 2: multiple teleports each followed by a scatter burst.
+        // Phase 1: single teleport, no scatter.
+        int count = IsPhase2 ? phase2TeleportCount : 1;
 
-        // 2. Teleport to best position
-        transform.position = FindTeleportPosition();
+        for (int i = 0; i < count; i++)
+        {
+            // Ghost eyes linger at departure position while boss fades out
+            try { SpawnEyeGhosts(); } catch (System.Exception e) { Debug.LogWarning("[VesperAI] SpawnEyeGhosts failed: " + e.Message); }
 
-        // 3. Brief pause
-        yield return new WaitForSeconds(teleportEyeRestoreDelay);
+            // Fade out
+            SetAlphaTarget(0f, teleportFadeDuration);
+            yield return new WaitForSeconds(teleportFadeDuration);
 
-        // 4. Reset per-cycle counters
+            // Teleport
+            transform.position = FindTeleportPosition();
+            yield return new WaitForSeconds(teleportEyeRestoreDelay);
+
+            // Snap visible + arrival flash
+            ApplyAlpha(bodyMaxAlpha);
+            SetAlphaTarget(bodyMaxAlpha, 0.01f);
+            StartCoroutine(EyeArrivalFlash());
+
+            // Phase 2 fires after every teleport
+            if (IsPhase2)
+                FireScatterForced();
+
+            // Between bursts: use phase2TeleportInterval.
+            // After the last burst: use teleportArrivalDuration so the body stays
+            // visible at bodyMaxAlpha before Update fades it to bodyMinAlpha.
+            float waitTime = (i < count - 1) ? phase2TeleportInterval : teleportArrivalDuration;
+            yield return new WaitForSeconds(waitTime);
+        }
+
+        // Reset per-cycle counters
         kHitCount             = 0;
         dashHitCount          = 0;
         slashDamageThisCycle  = 0f;
         meleeProximityTimer   = 0f;
         slashStaggerAvailable = true;
         inSlashStagger        = false;
-        vulnerableTimer       = 0f;  // back to invincible after teleport
+        vulnerableTimer       = 0f;
 
         isTeleporting = false;
-
-        // Snap alpha to correct state — both currentAlpha and alphaTarget must match
-        // or UpdateAlphaFade will immediately pull alpha back to the old target
-        ApplyAlpha(bodyMinAlpha);
-        SetAlphaTarget(bodyMinAlpha, 0.01f);
+        // Body is still at bodyMaxAlpha. Update will fade it to bodyMinAlpha
+        // if the player isn't illuminating the boss.
     }
 
     Vector2 FindTeleportPosition()
@@ -519,6 +741,9 @@ public class VesperAI : MonoBehaviour
 
         // 0. Lock camera on boss for the death animation
         bossIntroCam?.FocusOnBoss(transform.position);
+
+        // Hide boss health bar immediately when death begins
+        if (healthBar != null) healthBar.Hide();
 
         // 1. Full-screen white flash (0.3 s)
         StartCoroutine(FullScreenWhiteFlash(deathEyeExpandDuration));

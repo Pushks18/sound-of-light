@@ -151,6 +151,32 @@ public class BossIntroCam : MonoBehaviour
         isBusy = false;
     }
 
+    // ── Phase 2 Transition ───────────────────────────────────────────────────
+
+    /// <summary>
+    /// Smoothly pan to the boss for the Phase 2 cinematic. Disables CameraFollow.
+    /// VesperAI yields on this so the camera arrives before the teleport loop starts.
+    /// </summary>
+    public IEnumerator PanToBossPhase2(Vector3 bossWorldPos, float duration)
+    {
+        if (cam == null) cam = Camera.main;
+        if (cameraFollow != null) cameraFollow.enabled = false;
+        isBusy = true;
+        Vector3 target = new Vector3(bossWorldPos.x, bossWorldPos.y, -10f);
+        yield return StartCoroutine(PanTo(target, duration));
+    }
+
+    /// <summary>
+    /// Instantly move the camera to a world position.
+    /// Used during Phase 2 teleport loop so the camera tracks each teleport.
+    /// </summary>
+    public void SnapToPosition(Vector3 worldPos)
+    {
+        if (cam == null) cam = Camera.main;
+        if (cam != null)
+            cam.transform.position = new Vector3(worldPos.x, worldPos.y, -10f);
+    }
+
     // ── Shared ───────────────────────────────────────────────────────────────
 
     IEnumerator PanTo(Vector3 target, float duration)
