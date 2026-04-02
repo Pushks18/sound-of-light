@@ -27,6 +27,15 @@ public class PlayerLightWave : MonoBehaviour
         lightEnergy = GetComponent<LightEnergy>();
     }
 
+    /// <summary>
+    /// Compensates for time spent disabled (e.g. during boss cutscenes).
+    /// Advances the internal cooldown timer so it stays in sync with the UI.
+    /// </summary>
+    public void AdvanceCooldown(float seconds)
+    {
+        cooldownTimer = Mathf.Max(0f, cooldownTimer - seconds);
+    }
+
     void Update()
     {
         if (cooldownTimer > 0f)

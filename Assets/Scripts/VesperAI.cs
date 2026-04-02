@@ -65,10 +65,17 @@ public class VesperAI : MonoBehaviour
     [SerializeField] float alphaFadeOutDuration = 0.3f;
 
     [Header("Death")]
-    [SerializeField] float deathEyeExpandRadius   = 5f;
-    [SerializeField] float deathEyeExpandDuration = 0.3f;
-    [SerializeField] float deathEyeFadeDuration   = 1f;    // how long eyes take to fade out after radius collapse
-    [SerializeField] float deathFadeDelay         = 2f;    // total time before camera pan + BossDefeated()
+    [SerializeField] float deathRetreatFadeOut     = 0.25f;  // how fast boss fades out at kill spot
+    [SerializeField] float deathRetreatFadeIn      = 0.3f;   // how fast boss fades in at death position
+    [SerializeField] float deathRetreatRoomFraction = 0.55f; // how far from center to place death position (0–0.8)
+    [SerializeField] float deathFlashDuration      = 0.5f;   // white flash fade-out duration
+    [SerializeField] float deathConvulseDuration   = 1.6f;   // length of the shaking/pulsing phase
+    [SerializeField] float deathConvulseShakeAmp   = 0.2f;   // boss position jitter amplitude (world units)
+    [SerializeField] int   deathPulseCount         = 3;      // eye radius pulses during convulsion
+    [SerializeField] float deathPulseRadius        = 7f;     // peak radius per pulse (decreases each pulse)
+    [SerializeField] float deathEyeFadeDuration    = 1f;     // eyes shrink + fade out after convulsion
+    [SerializeField] float deathBodyFadeDuration   = 1f;     // body alpha fade
+    [SerializeField] float deathHoldDuration       = 0.4f;   // dark pause before camera pans back
 
     [Header("Phase 2 Transition")]
     [SerializeField] int   phase2TeleportCount        = 3;      // number of teleport+scatter bursts
@@ -76,11 +83,23 @@ public class VesperAI : MonoBehaviour
     [SerializeField] float phase2TeleportInterval     = 0.7f;   // gap between each teleport burst
     [SerializeField] Color phase2EyeColor             = new Color(1f, 0.15f, 0.1f, 1f);
     [SerializeField] float phase2EyeColorFadeDuration = 0.35f;
+    [SerializeField] float phase2TransitionZigzagOffset = 4f;   // left/right deviation per hop (world units)
 
     [Header("Teleport Eye Effects")]
-    [SerializeField] float eyeGhostFadeDuration      = 0.5f;   // how long departure ghost lingers
-    [SerializeField] float eyeArrivalFlashMultiplier = 4f;     // intensity spike on arrival (×normal)
-    [SerializeField] float eyeArrivalFlashDuration   = 0.35f;  // time to fade back from spike
+    [SerializeField] float eyeGhostFadeDuration           = 0.5f;   // how long departure ghost lingers
+    [SerializeField] float eyeArrivalFlashMultiplier      = 4f;     // intensity spike on arrival (×normal) — combat teleports only
+    [SerializeField] float eyeArrivalFlashDuration        = 0.35f;  // time to fade back from spike
+    [SerializeField] float phase2ArrivalBurstRadius       = 14f;    // eye radius spike on phase 2 arrival (illuminates room)
+    [SerializeField] float phase2ArrivalBurstDuration     = 0.6f;   // time to fade eye radius back to normal
+    [SerializeField] float phase2EyeIntensityMultiplier   = 1.4f;   // subtle brightness increase once eyes turn red
+    [SerializeField] float phase2DepartureShakeDuration   = 0.25f;  // how long the eye shake lasts before teleporting
+    [SerializeField] float phase2DepartureShakeAmplitude  = 0.12f;  // left-right offset in world units
+
+    [Header("Phase 2 Ambient Light")]
+    [SerializeField] Light2D globalLight;                      // scene's Global Light 2D — assign in Inspector
+    [SerializeField] float phase2AmbientTargetIntensity = 0.12f; // dim glow during cinematic (0 = pitch black)
+    [SerializeField] float phase2AmbientFadeInDuration  = 0.4f;
+    [SerializeField] float phase2AmbientFadeOutDuration = 0.8f;
 
     [Header("References")]
     [SerializeField] GameObject enemyBulletPrefab;  // EnemyBullet prefab
@@ -103,7 +122,8 @@ public class VesperAI : MonoBehaviour
     bool         wasLitLastFrame   = false;
     bool         activationDone    = false;   // one-shot activation sequence guard
 
-    bool         phase2Triggered   = false;
+    bool         phase2Entered          = false;  // true once HP first drops to phase2 threshold
+    bool         phase2SequenceTriggered = false;  // true once the post-phase2 teleport+scatter fires
     bool         isTeleporting     = false;
     bool         inSlashStagger    = false;
     float        slashStaggerTimer = 0f;
@@ -363,6 +383,7 @@ public class VesperAI : MonoBehaviour
             new Color(0.65f, 0.65f, 0.65f));
 
         StartCoroutine(HitFlash());
+        TryTriggerPhase2Sequence();
         CheckPhase2Transition();
 
         // K-hit teleport threshold
@@ -370,7 +391,7 @@ public class VesperAI : MonoBehaviour
         if (kHitCount >= threshold && !isTeleporting)
             StartCoroutine(TeleportSequence());
 
-        if (health <= 0f) StartCoroutine(DeathSequence());
+        if (health <= 0f) { StopAllCoroutines(); StartCoroutine(DeathSequence()); }
     }
 
     public void TakeDashDamage(float amount)
@@ -385,9 +406,10 @@ public class VesperAI : MonoBehaviour
         if (healthBar != null) healthBar.SetHealth(health);
         DamageNumber.Spawn((int)amount, transform.position);
         StartCoroutine(HitFlash());
+        TryTriggerPhase2Sequence();
         CheckPhase2Transition();
 
-        if (health <= 0f) { StartCoroutine(DeathSequence()); return; }
+        if (health <= 0f) { StopAllCoroutines(); StartCoroutine(DeathSequence()); return; }
 
         if (dashHitCount >= teleportDashHitThreshold && !isTeleporting)
             StartCoroutine(TeleportSequence());
@@ -405,6 +427,7 @@ public class VesperAI : MonoBehaviour
         if (healthBar != null) healthBar.SetHealth(health);
 
         DamageNumber.Spawn((int)slashDamage, transform.position);
+        TryTriggerPhase2Sequence();
         CheckPhase2Transition();
 
         // Stagger — only once per teleport cycle
@@ -415,7 +438,7 @@ public class VesperAI : MonoBehaviour
             slashStaggerTimer     = slashStaggerDuration;
         }
 
-        if (health <= 0f) { StartCoroutine(DeathSequence()); return; }
+        if (health <= 0f) { StopAllCoroutines(); StartCoroutine(DeathSequence()); return; }
 
         // Forced teleport once slash damage this cycle exceeds threshold
         if (slashDamageThisCycle >= slashTeleportThreshold && !isTeleporting)
@@ -426,11 +449,25 @@ public class VesperAI : MonoBehaviour
 
     void CheckPhase2Transition()
     {
-        if (phase2Triggered) return;
+        if (phase2Entered) return;
         if (health <= 0f) return;   // death takes priority
         if (!IsPhase2) return;
-        phase2Triggered = true;
+        phase2Entered = true;
         StartCoroutine(Phase2TransitionSequence());
+    }
+
+    /// <summary>
+    /// Called at the start of every damage handler (before CheckPhase2Transition).
+    /// Fires the 3-teleport+scatter sequence on the first hit after phase 2 is entered.
+    /// </summary>
+    void TryTriggerPhase2Sequence()
+    {
+        if (!phase2Entered) return;           // not yet in phase 2
+        if (phase2SequenceTriggered) return;  // already fired once
+        if (isTeleporting) return;            // cinematic still running
+        if (health <= 0f) return;             // death takes priority
+        phase2SequenceTriggered = true;
+        StartCoroutine(TeleportSequence());
     }
 
     IEnumerator Phase2TransitionSequence()
@@ -448,26 +485,39 @@ public class VesperAI : MonoBehaviour
 
         // Health bar shake (1 s, strong) + eye colour fade — simultaneous
         if (healthBar != null) healthBar.Shake(1f, 14f);
-        StartCoroutine(FadeEyeColor(phase2EyeColor, phase2EyeColorFadeDuration));
+        yield return StartCoroutine(FadeEyeColor(phase2EyeColor, phase2EyeColorFadeDuration));
 
-        yield return new WaitForSeconds(phase2TransitionDelay);
+        // Subtle brightness increase now that eyes are red — applied once, stays for the sequence
+        float redIntensity = eyeLeft != null ? eyeLeft.intensity : 1f;
+        SetEyeIntensity(redIntensity * phase2EyeIntensityMultiplier);
 
-        // N teleports — cinematic only, no shooting
-        for (int i = 0; i < phase2TeleportCount; i++)
+        float remainingDelay = Mathf.Max(0f, phase2TransitionDelay - phase2EyeColorFadeDuration);
+        if (remainingDelay > 0f) yield return new WaitForSeconds(remainingDelay);
+
+        // Fade ambient light up so the room is dimly visible — gives spatial reference during teleports
+        StartCoroutine(FadeGlobalLight(phase2AmbientTargetIntensity, phase2AmbientFadeInDuration));
+
+        // Pre-compute 3 zigzag positions: left → right → far destination
+        Vector2[] zigzagPositions = FindPhase2TransitionPositions();
+
+        // N cinematic teleports — no scatter, camera follows each hop
+        for (int i = 0; i < Mathf.Min(phase2TeleportCount, zigzagPositions.Length); i++)
         {
+            // Eyes jitter left-right as a departure windup, then ghost lingers at the old spot
+            yield return StartCoroutine(ShakeEyesOnDeparture(phase2DepartureShakeDuration, phase2DepartureShakeAmplitude));
             SpawnEyeGhosts();
 
             SetAlphaTarget(0f, teleportFadeDuration);
             yield return new WaitForSeconds(teleportFadeDuration);
 
-            transform.position = FindTeleportPosition();
+            transform.position = zigzagPositions[i];
             bossIntroCam?.SnapToPosition(transform.position);
 
             yield return new WaitForSeconds(teleportEyeRestoreDelay);
 
+            // Snap visible — no flash, eyes stay at the slightly-boosted red intensity
             ApplyAlpha(bodyMaxAlpha);
             SetAlphaTarget(bodyMaxAlpha, 0.01f);
-            StartCoroutine(EyeArrivalFlash());
 
             yield return new WaitForSeconds(phase2TeleportInterval);
         }
@@ -480,6 +530,9 @@ public class VesperAI : MonoBehaviour
         slashStaggerAvailable = true;
         inSlashStagger        = false;
         vulnerableTimer       = 0f;
+
+        // Fade ambient light back to black while camera pans back — run concurrently
+        StartCoroutine(FadeGlobalLight(0f, phase2AmbientFadeOutDuration));
 
         // Camera pans back to player, then player regains control
         if (bossIntroCam != null && playerTransform != null)
@@ -554,6 +607,74 @@ public class VesperAI : MonoBehaviour
         SetEyeIntensity(baseIntensity);
     }
 
+    /// <summary>
+    /// Spikes the eye light outer radius to phase2ArrivalBurstRadius on arrival,
+    /// then fades it back to the pre-burst value. This makes the arrival visible
+    /// even in a pitch-black room regardless of where the player's flashlight is aimed.
+    /// </summary>
+    IEnumerator EyeArrivalRadiusBurst()
+    {
+        if (eyeLeft == null && eyeRight == null) yield break;
+
+        float baseRadius = eyeLeft != null ? eyeLeft.pointLightOuterRadius
+                                           : eyeRight.pointLightOuterRadius;
+        float peak = phase2ArrivalBurstRadius;
+
+        SetEyeRadius(peak);
+
+        float elapsed = 0f;
+        while (elapsed < phase2ArrivalBurstDuration)
+        {
+            elapsed += Time.deltaTime;
+            SetEyeRadius(Mathf.Lerp(peak, baseRadius, elapsed / phase2ArrivalBurstDuration));
+            yield return null;
+        }
+        SetEyeRadius(baseRadius);
+    }
+
+    /// <summary>
+    /// Smoothly changes the global Light2D intensity to targetIntensity over duration.
+    /// Safe to call when globalLight is null (no-op).
+    /// </summary>
+    IEnumerator FadeGlobalLight(float targetIntensity, float duration)
+    {
+        if (globalLight == null) yield break;
+
+        float startIntensity = globalLight.intensity;
+        float elapsed        = 0f;
+        while (elapsed < duration)
+        {
+            elapsed += Time.deltaTime;
+            globalLight.intensity = Mathf.Lerp(startIntensity, targetIntensity, elapsed / duration);
+            yield return null;
+        }
+        globalLight.intensity = targetIntensity;
+    }
+
+    /// <summary>
+    /// Rapidly shakes both eye transforms left and right before the boss departs.
+    /// Eyes return to their original local positions when done.
+    /// </summary>
+    IEnumerator ShakeEyesOnDeparture(float duration, float amplitude)
+    {
+        Vector3 leftOrigin  = eyeLeft  != null ? eyeLeft.transform.localPosition  : Vector3.zero;
+        Vector3 rightOrigin = eyeRight != null ? eyeRight.transform.localPosition : Vector3.zero;
+
+        float elapsed = 0f;
+        const float freq = 22f;  // oscillations per second
+        while (elapsed < duration)
+        {
+            elapsed += Time.deltaTime;
+            float offset = Mathf.Sin(elapsed * freq * Mathf.PI * 2f) * amplitude;
+            if (eyeLeft  != null) eyeLeft.transform.localPosition  = leftOrigin  + Vector3.right * offset;
+            if (eyeRight != null) eyeRight.transform.localPosition = rightOrigin + Vector3.right * offset;
+            yield return null;
+        }
+
+        if (eyeLeft  != null) eyeLeft.transform.localPosition  = leftOrigin;
+        if (eyeRight != null) eyeRight.transform.localPosition = rightOrigin;
+    }
+
     IEnumerator FadeEyeColor(Color targetColor, float duration)
     {
         Color startLeft  = eyeLeft  != null ? eyeLeft.color  : Color.white;
@@ -585,9 +706,12 @@ public class VesperAI : MonoBehaviour
         }
     }
 
+    float playerDisabledAt = 0f;
+
     void DisablePlayerInput()
     {
         if (playerTransform == null) return;
+        playerDisabledAt = Time.time;
         var rb = playerTransform.GetComponent<Rigidbody2D>();
         if (rb != null) rb.linearVelocity = Vector2.zero;
         foreach (var mb in playerTransform.GetComponents<MonoBehaviour>())
@@ -601,12 +725,15 @@ public class VesperAI : MonoBehaviour
     void EnablePlayerInput()
     {
         if (playerTransform == null) return;
+        float disabledDuration = Time.time - playerDisabledAt;
         foreach (var mb in playerTransform.GetComponents<MonoBehaviour>())
         {
             if (mb is PlayerMovement || mb is PlayerShooting || mb is PlayerSlash ||
                 mb is PlayerDash     || mb is PlayerLightWave || mb is FlashlightAim)
                 mb.enabled = true;
         }
+        // Compensate flash cooldown for the time it was frozen while disabled
+        playerTransform.GetComponent<PlayerLightWave>()?.AdvanceCooldown(disabledDuration);
     }
 
     IEnumerator ActivationSequence()
@@ -733,96 +860,323 @@ public class VesperAI : MonoBehaviour
         return bestPos;
     }
 
+    /// <summary>
+    /// Returns 3 world positions for the Phase 2 cinematic teleport sequence.
+    /// Picks a far destination (opposite side of the room from the player), then
+    /// builds two intermediate hops that zigzag left and right of the path,
+    /// giving the classic "flicker side-to-side before landing" feel.
+    /// </summary>
+    Vector2[] FindPhase2TransitionPositions()
+    {
+        Vector2 start     = transform.position;
+        Vector2 playerPos = playerTransform != null ? (Vector2)playerTransform.position : roomCenter;
+
+        // Destination: push toward the room edge farthest from the player
+        Vector2 awayDir = (roomCenter - playerPos).normalized;
+        if (awayDir == Vector2.zero) awayDir = Vector2.up;
+        Vector2 destination = roomCenter + awayDir * new Vector2(roomHalfSize.x, roomHalfSize.y) * 0.78f;
+        destination = ClampToRoom(destination);
+
+        // Perpendicular axis for the zigzag
+        Vector2 path = destination - start;
+        Vector2 perp = path.sqrMagnitude > 0.01f
+                     ? new Vector2(-path.y, path.x).normalized
+                     : Vector2.right;
+
+        // Hop 1: ~35% along path, offset LEFT
+        // Hop 2: ~70% along path, offset RIGHT
+        // Hop 3: final destination (no side offset)
+        Vector2 pos1 = ClampToRoom(Vector2.Lerp(start, destination, 0.35f) + perp *  phase2TransitionZigzagOffset);
+        Vector2 pos2 = ClampToRoom(Vector2.Lerp(start, destination, 0.70f) - perp *  phase2TransitionZigzagOffset);
+        Vector2 pos3 = destination;
+
+        return new Vector2[] { pos1, pos2, pos3 };
+    }
+
+    Vector2 ClampToRoom(Vector2 pos)
+    {
+        pos.x = Mathf.Clamp(pos.x, roomCenter.x - roomHalfSize.x * 0.8f, roomCenter.x + roomHalfSize.x * 0.8f);
+        pos.y = Mathf.Clamp(pos.y, roomCenter.y - roomHalfSize.y * 0.8f, roomCenter.y + roomHalfSize.y * 0.8f);
+        return pos;
+    }
+
     IEnumerator DeathSequence()
     {
         if (state == BossState.Dead) yield break;
         state         = BossState.Dead;
-        isTeleporting = true;  // prevent any further teleport coroutines
+        isTeleporting = true;
 
-        // 0. Lock camera on boss for the death animation
-        bossIntroCam?.FocusOnBoss(transform.position);
+        // StopAllCoroutines() may have interrupted Phase2TransitionSequence mid-way,
+        // leaving the player frozen and global light at a non-zero value — reset both.
+        EnablePlayerInput();
+        if (globalLight != null) globalLight.intensity = 0f;
 
-        // Hide boss health bar immediately when death begins
         if (healthBar != null) healthBar.Hide();
 
-        // 1. Full-screen white flash (0.3 s)
-        StartCoroutine(FullScreenWhiteFlash(deathEyeExpandDuration));
+        // ── Step 1: Retreat ──────────────────────────────────────────────────
 
-        // 2. Eyes expand radius then collapse
-        float startRadius = eyeLeft != null ? eyeLeft.pointLightOuterRadius : 1f;
+        // Eyes jitter — panic, last-ditch escape attempt
+        yield return StartCoroutine(ShakeEyesOnDeparture(phase2DepartureShakeDuration,
+                                                          phase2DepartureShakeAmplitude * 1.5f));
 
-        // Expand phase
-        float elapsed = 0f;
-        while (elapsed < deathEyeExpandDuration * 0.5f)
-        {
-            elapsed += Time.deltaTime;
-            float t = elapsed / (deathEyeExpandDuration * 0.5f);
-            SetEyeRadius(Mathf.Lerp(startRadius, deathEyeExpandRadius, t));
-            yield return null;
-        }
+        // Body flickers out like a dying signal
+        yield return StartCoroutine(DeathFlickerOut());
 
-        // Collapse phase
-        elapsed = 0f;
-        while (elapsed < deathEyeExpandDuration * 0.5f)
-        {
-            elapsed += Time.deltaTime;
-            float t = elapsed / (deathEyeExpandDuration * 0.5f);
-            SetEyeRadius(Mathf.Lerp(deathEyeExpandRadius, startRadius, t));
-            yield return null;
-        }
+        // Ghost eyes linger at kill spot; camera holds so player sees the ghost
+        SpawnEyeGhosts();
+        yield return new WaitForSeconds(0.25f);
 
-        // Eye intensity fade to 0
-        float startEyeIntensity = eyeLeft != null ? eyeLeft.intensity : 0f;
-        elapsed = 0f;
-        while (elapsed < deathEyeFadeDuration)
-        {
-            elapsed += Time.deltaTime;
-            SetEyeIntensity(Mathf.Lerp(startEyeIntensity, 0f, elapsed / deathEyeFadeDuration));
-            yield return null;
-        }
-        SetEyeIntensity(0f);
+        // Teleport, then snap camera — body still invisible
+        transform.position = FindDeathPosition();
+        bossIntroCam?.FocusOnBoss(transform.position);
+        yield return new WaitForSeconds(0.1f);
 
-        // 3. Fade sprite out over deathFadeDelay * 0.5 s
-        float fadeDur = deathFadeDelay * 0.5f;
-        elapsed = 0f;
-        while (elapsed < fadeDur)
-        {
-            elapsed += Time.deltaTime;
-            ApplyAlpha(Mathf.Lerp(currentAlpha, 0f, elapsed / fadeDur));
-            yield return null;
-        }
-        ApplyAlpha(0f);
+        // Unstable arrival — flickers before holding
+        yield return StartCoroutine(DeathFlickerIn());
+        yield return new WaitForSeconds(0.1f);
 
-        // 4. Wait remainder
-        yield return new WaitForSeconds(deathFadeDelay - fadeDur);
+        // ── Step 2: Impact flash ─────────────────────────────────────────────
+        StartCoroutine(FullScreenFlashFadeOut(deathFlashDuration));
+        yield return new WaitForSeconds(0.1f);
 
-        // 5. Smoothly pan camera back to player, then trigger victory
+        // ── Step 3: Convulsion ───────────────────────────────────────────────
+        yield return StartCoroutine(DeathConvulse());
+
+        // ── Step 4+5: Candle flicker + body fade (concurrent) ────────────────
+        float startIntensity = eyeLeft != null ? eyeLeft.intensity             : 0f;
+        float startRadius    = eyeLeft != null ? eyeLeft.pointLightOuterRadius : 1f;
+
+        // Body starts fading partway through the flicker (during the "last gasp" phase)
+        StartCoroutine(DeathBodyFadeDelayed(deathBodyFadeDuration));
+        yield return StartCoroutine(DeathCandleFlicker(startIntensity, startRadius));
+
+        // ── Step 6: Brief dark pause, then camera pans back ──────────────────
+        yield return new WaitForSeconds(deathHoldDuration);
+
         if (bossIntroCam != null && playerTransform != null)
             yield return StartCoroutine(bossIntroCam.PanBackToPlayer(playerTransform));
 
         GameManager.Instance?.BossDefeated();
     }
 
-    IEnumerator FullScreenWhiteFlash(float duration)
+    /// <summary>
+    /// Picks an open position for the death cinematic: away from the player,
+    /// centred in the room rather than pushed to the wall.
+    /// </summary>
+    Vector2 FindDeathPosition()
     {
-        // Instantiate a temporary full-screen white canvas
+        Vector2 playerPos = playerTransform != null ? (Vector2)playerTransform.position : roomCenter;
+        Vector2 awayDir   = (roomCenter - playerPos).normalized;
+        if (awayDir == Vector2.zero) awayDir = Vector2.up;
+
+        // Push from centre in the away direction, clamped well inside room edges
+        Vector2 pos = roomCenter + awayDir * new Vector2(
+            roomHalfSize.x * deathRetreatRoomFraction,
+            roomHalfSize.y * deathRetreatRoomFraction);
+
+        return ClampToRoom(pos);
+    }
+
+    /// <summary>Body blinks off like a dying signal — 3 flashes, each shorter and dimmer.</summary>
+    IEnumerator DeathFlickerOut()
+    {
+        // Still at bodyMaxAlpha coming in.
+        // Pattern: dim → briefly back → darker → briefly back → gone
+        float[] onAlphas  = { bodyMaxAlpha * 0.65f, bodyMaxAlpha * 0.3f };
+        float   onTime    = 0.07f;
+        float   offTime   = 0.05f;
+
+        foreach (float alpha in onAlphas)
+        {
+            ApplyAlpha(0f);
+            yield return new WaitForSeconds(offTime);
+            ApplyAlpha(alpha);
+            yield return new WaitForSeconds(onTime);
+        }
+        ApplyAlpha(0f);
+    }
+
+    /// <summary>Body blinks in unstably at arrival — twice fails to hold, then stabilises.</summary>
+    IEnumerator DeathFlickerIn()
+    {
+        float[] onAlphas = { bodyMaxAlpha * 0.45f, bodyMaxAlpha * 0.8f };
+        float   onTime   = 0.06f;
+        float   offTime  = 0.04f;
+
+        foreach (float alpha in onAlphas)
+        {
+            ApplyAlpha(alpha);
+            yield return new WaitForSeconds(onTime);
+            ApplyAlpha(0f);
+            yield return new WaitForSeconds(offTime);
+        }
+        ApplyAlpha(bodyMaxAlpha);
+    }
+
+    IEnumerator DeathConvulse()
+    {
+        Vector3 origin        = transform.position;
+        Color   startEyeColor = eyeLeft != null ? eyeLeft.color : Color.white;
+        Color   dimColor      = new Color(0.55f, 0.55f, 0.55f, 1f);
+        float   baseRadius    = eyeLeft != null ? eyeLeft.pointLightOuterRadius : 1f;
+
+        StartCoroutine(DeathEyePulse(baseRadius));
+
+        float elapsed     = 0f;
+        float freezeTimer = 0f;         // counts down during a freeze
+        const float freezeEvery    = 0.45f;  // seconds between freezes
+        const float freezeDuration = 0.15f;  // how long each freeze lasts
+        float nextFreeze = freezeEvery;
+
+        while (elapsed < deathConvulseDuration)
+        {
+            elapsed   += Time.deltaTime;
+            float t    = elapsed / deathConvulseDuration;
+
+            if (freezeTimer > 0f)
+            {
+                // Frozen — hold position, count down
+                freezeTimer -= Time.deltaTime;
+            }
+            else
+            {
+                // Jitter — amplitude decays sharply as t grows
+                float amp = deathConvulseShakeAmp * Mathf.Pow(1f - t, 0.35f);
+                transform.position = origin + (Vector3)(Random.insideUnitCircle * amp);
+
+                // Schedule next freeze
+                nextFreeze -= Time.deltaTime;
+                if (nextFreeze <= 0f)
+                {
+                    nextFreeze  = freezeEvery * Random.Range(0.8f, 1.3f);
+                    freezeTimer = freezeDuration;
+                    transform.position = origin;  // snap back on freeze start
+                }
+            }
+
+            // Eye colour drains red → dim grey
+            Color c = Color.Lerp(startEyeColor, dimColor, t);
+            if (eyeLeft  != null) eyeLeft.color  = c;
+            if (eyeRight != null) eyeRight.color = c;
+
+            yield return null;
+        }
+
+        transform.position = origin;
+    }
+
+    IEnumerator DeathEyePulse(float baseRadius)
+    {
+        for (int i = 0; i < deathPulseCount; i++)
+        {
+            float frac = (float)i / deathPulseCount;
+
+            // Peak shrinks each pulse; interval stretches (heartbeat losing rhythm)
+            float peak     = Mathf.Lerp(deathPulseRadius, baseRadius * 1.15f, frac);
+            float interval = Mathf.Lerp(deathConvulseDuration / deathPulseCount,
+                                        deathConvulseDuration / deathPulseCount * 1.8f, frac);
+            float expand   = interval * 0.35f;
+            float contract = interval * 0.65f;
+
+            float elapsed = 0f;
+            while (elapsed < expand)
+            {
+                elapsed += Time.deltaTime;
+                SetEyeRadius(Mathf.Lerp(baseRadius, peak, elapsed / expand));
+                yield return null;
+            }
+            elapsed = 0f;
+            while (elapsed < contract)
+            {
+                elapsed += Time.deltaTime;
+                SetEyeRadius(Mathf.Lerp(peak, baseRadius, elapsed / contract));
+                yield return null;
+            }
+        }
+    }
+
+    /// <summary>
+    /// "Dying candle" eye flicker: dims → brief flare (fighting back) → nearly out →
+    /// one last gasp → radius collapses → dark.
+    /// Total approx duration: 0.38 + 0.13 + 0.52 + 0.09 + 0.72 ≈ 1.84 s.
+    /// </summary>
+    IEnumerator DeathCandleFlicker(float baseIntensity, float baseRadius)
+    {
+        // Each entry: (intensity multiplier, radius multiplier, duration in seconds)
+        // Read as: lerp FROM current TO (base × multiplier) over duration.
+        float[] intensityMult = { 0.28f, 0.68f, 0.07f, 0.42f, 0.0f };
+        float[] radiusMult    = { 1.00f, 1.25f, 0.45f, 0.75f, 0.0f };
+        float[] durations     = { 0.38f, 0.13f, 0.52f, 0.09f, 0.72f };
+
+        // Body starts fading at the "last gasp" keyframe (index 3)
+        float bodyFadeDelay = durations[0] + durations[1] + durations[2];
+
+        for (int k = 0; k < durations.Length; k++)
+        {
+            float fromIntensity = eyeLeft != null ? eyeLeft.intensity             : 0f;
+            float fromRadius    = eyeLeft != null ? eyeLeft.pointLightOuterRadius : 1f;
+            float toIntensity   = baseIntensity * intensityMult[k];
+            float toRadius      = baseRadius    * radiusMult[k];
+            float dur           = durations[k];
+
+            float elapsed = 0f;
+            while (elapsed < dur)
+            {
+                elapsed += Time.deltaTime;
+                float t  = elapsed / dur;
+                SetEyeIntensity(Mathf.Lerp(fromIntensity, toIntensity, t));
+                SetEyeRadius   (Mathf.Lerp(fromRadius,    toRadius,    t));
+                yield return null;
+            }
+        }
+
+        SetEyeIntensity(0f);
+        SetEyeRadius(0f);
+    }
+
+    IEnumerator DeathBodyFadeDelayed(float fadeDuration)
+    {
+        // Wait until the candle is on its "last gasp" before body starts vanishing
+        float delay = 0.38f + 0.13f + 0.52f;  // matches bodyFadeDelay in DeathCandleFlicker
+        yield return new WaitForSeconds(delay);
+
+        float startAlpha = currentAlpha;
+        float elapsed    = 0f;
+        while (elapsed < fadeDuration)
+        {
+            elapsed += Time.deltaTime;
+            ApplyAlpha(Mathf.Lerp(startAlpha, 0f, elapsed / fadeDuration));
+            yield return null;
+        }
+        ApplyAlpha(0f);
+    }
+
+    IEnumerator FullScreenFlashFadeOut(float duration)
+    {
         var canvasObj = new GameObject("VesperDeathFlash");
         var canvas    = canvasObj.AddComponent<Canvas>();
-        canvas.renderMode  = RenderMode.ScreenSpaceOverlay;
+        canvas.renderMode   = RenderMode.ScreenSpaceOverlay;
         canvas.sortingOrder = 150;
 
         var panelObj = new GameObject("WhitePanel");
         panelObj.transform.SetParent(canvasObj.transform, false);
-        var rt = panelObj.AddComponent<RectTransform>();
-        rt.anchorMin  = Vector2.zero;
-        rt.anchorMax  = Vector2.one;
-        rt.offsetMin  = Vector2.zero;
-        rt.offsetMax  = Vector2.zero;
-        var img = panelObj.AddComponent<Image>();
-        img.color          = Color.white;
-        img.raycastTarget  = false;
+        var rt       = panelObj.AddComponent<RectTransform>();
+        rt.anchorMin = Vector2.zero;
+        rt.anchorMax = Vector2.one;
+        rt.offsetMin = Vector2.zero;
+        rt.offsetMax = Vector2.zero;
+        var img           = panelObj.AddComponent<Image>();
+        img.color         = Color.white;
+        img.raycastTarget = false;
 
-        yield return new WaitForSeconds(duration);
+        // Instantly full white, then fade out
+        float elapsed = 0f;
+        while (elapsed < duration)
+        {
+            elapsed   += Time.deltaTime;
+            img.color  = new Color(1f, 1f, 1f, 1f - elapsed / duration);
+            yield return null;
+        }
         Destroy(canvasObj);
     }
 
