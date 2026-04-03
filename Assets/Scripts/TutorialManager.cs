@@ -6,24 +6,36 @@ using System.Collections;
 
 public class TutorialManager : MonoBehaviour
 {
+    public static TutorialManager Instance { get; private set; }
+
+    [Header("UI")]
     public TMP_Text tutorialText;
 
     [Header("Global Light")]
-    [Tooltip("Drag the Global Light 2D GameObject from the hierarchy here.")]
+    [Tooltip("Drag the Global Light 2D GameObject here.")]
     public Light2D globalLight;
 
-    private const float LIGHT_BRIGHT   = 1f;   // normal tutorial brightness
-    private const float LIGHT_DARK     = 0.02f;  // after dimming
+    // ── Light levels ─────────────────────────────────────────────────────────
+    private const float LIGHT_BRIGHT = 0f;      // full dark — only light sources illuminate
+    private const float LIGHT_DIM    = 0f;      // Room 1 — same, already pitch black
 
-    private int  enemiesKilled   = 0;
+    // ── State ─────────────────────────────────────────────────────────────────
+    private int  currentRoom      = 0;   // which tutorial room the player is in
+    private int  enemiesKilled    = 0;
     private bool tutorialFinished = false;
-    private bool playerDashed    = false;
-    private bool playerShot      = false;
-    private bool playerFlashed   = false;
+    private bool playerDashed     = false;
+    private bool playerShot       = false;
+    private bool playerFlashed    = false;
 
     private PlayerMovement playerMovement;
 
     // ─────────────────────────────────────────────────────────────────────────
+    void Awake()
+    {
+        if (Instance != null && Instance != this) { Destroy(gameObject); return; }
+        Instance = this;
+    }
+
     void OnEnable()  => EnemyHealth.OnEnemyKilled += HandleEnemyKilled;
     void OnDisable()
     {
@@ -34,11 +46,9 @@ public class TutorialManager : MonoBehaviour
 
     void Start()
     {
-        // Set global light to tutorial brightness immediately
         if (globalLight != null)
             globalLight.intensity = LIGHT_BRIGHT;
 
-        // Subscribe to dash event
         var pm = FindAnyObjectByType<PlayerMovement>();
         if (pm != null)
         {
@@ -46,82 +56,120 @@ public class TutorialManager : MonoBehaviour
             playerMovement.OnDashStart += HandleDash;
         }
 
-        StartCoroutine(TutorialSequence());
+        StartCoroutine(Room0_Intro());
     }
 
     void Update()
     {
-        if (Input.GetKeyDown(KeyCode.K))
-            playerShot = true;
-        if (Input.GetKeyDown(KeyCode.L))
-            playerFlashed = true;
+        if (Input.GetKeyDown(KeyCode.K)) playerShot    = true;
+        if (Input.GetKeyDown(KeyCode.L)) playerFlashed = true;
 
-        if (tutorialFinished && Input.GetKeyDown(KeyCode.Space))
+        if (tutorialFinished &&
+            (Input.GetKeyDown(KeyCode.Space) || Input.GetKeyDown(KeyCode.Escape)))
             SceneManager.LoadScene("MainMenu");
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    IEnumerator TutorialSequence()
+    // ── Called by TutorialRoomTrigger ─────────────────────────────────────────
+    public void EnterRoom(int roomIndex)
     {
-        // ── 1. MOVE ──────────────────────────────────────────────────────────
-        Show("WASD to move");
-        yield return new WaitUntil(() => PlayerMoved());
+        if (roomIndex <= currentRoom) return;   // ignore duplicate triggers
+        currentRoom = roomIndex;
+    }
+
+    // ═════════════════════════════════════════════════════════════════════════
+    //  ROOM 0 – Starting room
+    //  Safe room with green light sources. Intro text shown as player explores.
+    // ═════════════════════════════════════════════════════════════════════════
+    IEnumerator Room0_Intro()
+    {
+        yield return new WaitForSeconds(0.8f);
+        Show("It's Prolly scary in there\nBut everything in you\nis made of Light");
+
+        // Wait until the player walks into room 1
+        yield return new WaitUntil(() => currentRoom >= 1);
+        Hide();
+
+        yield return StartCoroutine(Room1_SlashAndFlash());
+    }
+
+    // ═════════════════════════════════════════════════════════════════════════
+    //  ROOM 1 – Dark room  (teaches: L to flash, J to slash)
+    //  Enemies here activate naturally when the player's flash hits them.
+    //  Place 2 enemies: one near the entrance, one behind the player's path.
+    // ═════════════════════════════════════════════════════════════════════════
+    IEnumerator Room1_SlashAndFlash()
+    {
+        enemiesKilled = 0;
+
+        // Dim the scene to signal darkness
+        yield return StartCoroutine(FadeGlobalLight(LIGHT_BRIGHT, LIGHT_DIM, 0.6f));
+
+        // Step 1: teach the flash
+        playerFlashed = false;
+        Show("Too Dark?\nHit L to light up your surroundings");
+        yield return new WaitUntil(() => playerFlashed);
+        Hide();
+        yield return new WaitForSeconds(0.4f);
+
+        // Step 2: teach the slash (enemies are now visible + activated by the flash)
+        Show("SPAM J to kill");
+        yield return new WaitUntil(() => enemiesKilled >= 2);
         Hide();
         yield return new WaitForSeconds(0.5f);
 
-        // ── 2. SLASH ─────────────────────────────────────────────────────────
-        Show("Press J to Slash");
-        yield return new WaitUntil(() => enemiesKilled >= 1);
+        // Restore lighting before next room
+        yield return StartCoroutine(FadeGlobalLight(LIGHT_DIM, LIGHT_BRIGHT, 1f));
 
-        // ── 3. AVOID THE TRAP (2 s) ──────────────────────────────────────────
-        Show("Avoid the trap");
-        yield return new WaitForSeconds(2f);
+        yield return new WaitUntil(() => currentRoom >= 2);
+        yield return StartCoroutine(Room2_Shoot());
+    }
 
-        // ── 4. DASH TIP ──────────────────────────────────────────────────────
-        // Show the hint, then wait for player to actually dash,
-        // then keep it visible for 3.5 more seconds so they can read it.
-        playerDashed = false;
-        Show("Use Left Shift to dash and avoid the trap");
-        yield return new WaitUntil(() => playerDashed);
-        yield return new WaitForSeconds(3.5f);
-        Hide();
-        yield return new WaitForSeconds(0.4f);
-
-        // ── 5. SHOOT ─────────────────────────────────────────────────────────
-        // Wait for player to shoot (K), then wait for an enemy to die,
-        // then wait 2.5 more seconds before moving on.
+    // ═════════════════════════════════════════════════════════════════════════
+    //  ROOM 2 – Ambush room  (teaches: K to shoot)
+    //  Place 3 enemies that are immediately activated via TutorialEnemyActivator.
+    // ═════════════════════════════════════════════════════════════════════════
+    IEnumerator Room2_Shoot()
+    {
         enemiesKilled = 0;
         playerShot    = false;
-        Show("Press K to Shoot");
+
+        Show("Enemy far away?\nTake aim as you move and shoot them with K!");
         yield return new WaitUntil(() => playerShot);
         yield return new WaitUntil(() => enemiesKilled >= 1);
-        yield return new WaitForSeconds(2.5f);
         Hide();
-        yield return new WaitForSeconds(0.4f);
+        yield return new WaitForSeconds(0.5f);
 
-        // ── 6. DASH DAMAGE TIP ───────────────────────────────────────────────
-        Show("Dash can also damage enemies!");
-        yield return new WaitForSeconds(2.5f);
+        yield return new WaitUntil(() => currentRoom >= 3);
+        yield return StartCoroutine(Room3_Dash());
+    }
 
-        // ── 7. DARKEN THE SCENE ──────────────────────────────────────────────
-        Show("Now let's make things darker...");
-        yield return StartCoroutine(FadeGlobalLight(LIGHT_BRIGHT, LIGHT_DARK, 3f));
+    // ═════════════════════════════════════════════════════════════════════════
+    //  ROOM 3 – Trap corridor  (teaches: Left-Shift to dash)
+    //  Fill the corridor with traps (startArmed = true on each Trap component).
+    // ═════════════════════════════════════════════════════════════════════════
+    IEnumerator Room3_Dash()
+    {
+        playerDashed = false;
+
+        Show("Hmm, Maybe try dashing\nacross with L-Shift");
+        yield return new WaitUntil(() => playerDashed);
         Hide();
-        yield return new WaitForSeconds(1f);   // 1 s of silence in the dark
+        yield return new WaitForSeconds(0.5f);
 
-        // ── 8. FLASH ─────────────────────────────────────────────────────────
-        playerFlashed = false;
-        Show("Press L to Flash");
-        yield return new WaitUntil(() => playerFlashed);
-        Hide();
-        yield return new WaitForSeconds(2f);
+        yield return new WaitUntil(() => currentRoom >= 4);
+        yield return StartCoroutine(Room4_Final());
+    }
 
-        // ── 9. FLASH WARNING ─────────────────────────────────────────────────
-        Show("Careful! Flashing can bring enemies close to you");
-        yield return new WaitForSeconds(3f);
+    // ═════════════════════════════════════════════════════════════════════════
+    //  ROOM 4 – Final room
+    //  One enemy (or none) + plenty of green light sources as a cool backdrop.
+    // ═════════════════════════════════════════════════════════════════════════
+    IEnumerator Room4_Final()
+    {
+        Show("Do you think you are ready?\nDon't worry, Nobody is...");
+        yield return new WaitForSeconds(3.5f);
 
-        // ── DONE ─────────────────────────────────────────────────────────────
-        Show("Tutorial Complete\nPress SPACE to return to Menu");
+        Show("Tutorial Complete\nClick Escape or Space to go to the Menu");
         tutorialFinished = true;
     }
 
@@ -129,7 +177,6 @@ public class TutorialManager : MonoBehaviour
     IEnumerator FadeGlobalLight(float from, float to, float duration)
     {
         if (globalLight == null) yield break;
-
         float elapsed = 0f;
         while (elapsed < duration)
         {
@@ -140,7 +187,6 @@ public class TutorialManager : MonoBehaviour
         globalLight.intensity = to;
     }
 
-    // Helpers ─────────────────────────────────────────────────────────────────
     void Show(string msg)
     {
         if (tutorialText == null) return;
@@ -156,9 +202,4 @@ public class TutorialManager : MonoBehaviour
 
     void HandleEnemyKilled() => enemiesKilled++;
     void HandleDash()        => playerDashed = true;
-
-    bool PlayerMoved()
-    {
-        return Input.GetAxisRaw("Horizontal") != 0 || Input.GetAxisRaw("Vertical") != 0;
-    }
 }
