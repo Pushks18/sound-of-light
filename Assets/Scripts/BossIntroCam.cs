@@ -22,8 +22,9 @@ public class BossIntroCam : MonoBehaviour
 
     [Header("Intro Pan")]
     [SerializeField] private float panToTargetDuration = 2f;
-    [SerializeField] private float holdDuration        = 2.5f;
+    [SerializeField] private float holdDuration        = 1.25f;
     [SerializeField] private float panBackDuration     = 1.5f;
+    [SerializeField] private float introSpeedMultiplier = 1.3f;
 
     [Header("Enemy Death Glance")]
     [SerializeField] private VesperAI  vesper;
@@ -95,9 +96,11 @@ public class BossIntroCam : MonoBehaviour
 
         if (cameraFollow != null) cameraFollow.enabled = false;
 
+        float speed = Mathf.Max(0.01f, introSpeedMultiplier);
+
         // Pan to boss
         Vector3 bossPos = new Vector3(targetWorldPos.x, targetWorldPos.y, -10f);
-        yield return StartCoroutine(PanTo(bossPos, panToTargetDuration));
+        yield return StartCoroutine(PanTo(bossPos, panToTargetDuration / speed));
 
         // Hold on boss
         yield return new WaitForSeconds(holdDuration);
@@ -106,7 +109,7 @@ public class BossIntroCam : MonoBehaviour
         if (player != null)
         {
             Vector3 playerPos = new Vector3(player.position.x, player.position.y, -10f);
-            yield return StartCoroutine(PanTo(playerPos, panBackDuration));
+            yield return StartCoroutine(PanTo(playerPos, panBackDuration / speed));
             if (cam != null)
                 cam.transform.position = new Vector3(player.position.x, player.position.y, -10f);
         }
