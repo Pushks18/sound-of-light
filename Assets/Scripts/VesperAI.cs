@@ -121,6 +121,7 @@ public class VesperAI : MonoBehaviour
     bool         isCurrentlyLit    = false;
     bool         wasLitLastFrame   = false;
     bool         activationDone    = false;   // one-shot activation sequence guard
+    bool         playerBuffApplied = false;
 
     bool         phase2Entered          = false;  // true once HP first drops to phase2 threshold
     bool         phase2SequenceTriggered = false;  // true once the post-phase2 teleport+scatter fires
@@ -189,6 +190,7 @@ public class VesperAI : MonoBehaviour
     void Start()
     {
         playerTransform = GameObject.FindGameObjectWithTag("Player")?.transform;
+        StartCoroutine(ApplyStartupPlayerBuffNextFrame());
     }
 
     // ── Public API ───────────────────────────────────────────────────────────
@@ -738,6 +740,8 @@ public class VesperAI : MonoBehaviour
 
     IEnumerator ActivationSequence()
     {
+        ApplyBossFightPlayerBuff();
+
         // Health bar: initialize with correct maxHealth, then fade in.
         // Done here (not in Awake) so BuildUI() has definitely already run
         // and fillImage is not null. Also guarantees maxHealth != 0 so
@@ -753,6 +757,24 @@ public class VesperAI : MonoBehaviour
         state = BossState.InBattle;
         FireScatter();
         scatterTimer = IsPhase2 ? phase2ScatterInterval : scatterIntervalWhileLit;
+    }
+
+    IEnumerator ApplyStartupPlayerBuffNextFrame()
+    {
+        yield return null;
+        ApplyBossFightPlayerBuff();
+    }
+
+    void ApplyBossFightPlayerBuff()
+    {
+        if (playerBuffApplied) return;
+
+        var playerHealth = playerTransform != null ? playerTransform.GetComponent<PlayerHealth>() : null;
+        playerHealth?.AddMaxHealth(2);
+
+        PlayerAmmo.Instance?.AddMaxFlashes(2);
+
+        playerBuffApplied = true;
     }
 
     void FireScatter()

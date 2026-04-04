@@ -5,6 +5,7 @@ using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 using System.Collections;
 using System.Linq;
+using UnityEngine.EventSystems;
 
 public class GameManager : MonoBehaviour
 {
@@ -62,10 +63,11 @@ public class GameManager : MonoBehaviour
 
     void Update()
     {
-        if (playerWon && Input.GetKeyDown(KeyCode.Space))
+        if (playerWon && (Input.GetKeyDown(KeyCode.Space) ||
+                          Input.GetKeyDown(KeyCode.Return) ||
+                          Input.GetKeyDown(KeyCode.Escape)))
         {
-            Time.timeScale = 1f;
-            SceneManager.LoadScene("MainMenu");
+            ReturnToMainMenu();
         }
     }
 
@@ -217,9 +219,14 @@ public class GameManager : MonoBehaviour
             var canvasObj = new GameObject("WinCanvas");
             canvas = canvasObj.AddComponent<Canvas>();
             canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-            canvasObj.AddComponent<CanvasScaler>();
+            var scaler = canvasObj.AddComponent<CanvasScaler>();
+            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+            scaler.referenceResolution = new Vector2(1920f, 1080f);
+            scaler.matchWidthOrHeight = 0.5f;
             canvasObj.AddComponent<GraphicRaycaster>();
         }
+
+        EnsureEventSystem();
 
         // Dark overlay
         var panel = new GameObject("WinPanel");
@@ -263,6 +270,59 @@ public class GameManager : MonoBehaviour
         promptText.fontSize = 32;
         promptText.color = Color.white;
         promptText.alignment = TextAlignmentOptions.Center;
+
+        // Main menu button
+        var buttonObj = new GameObject("MainMenuButton");
+        buttonObj.transform.SetParent(panel.transform, false);
+        var buttonRect = buttonObj.AddComponent<RectTransform>();
+        buttonRect.anchorMin = new Vector2(0.5f, 0.28f);
+        buttonRect.anchorMax = new Vector2(0.5f, 0.28f);
+        buttonRect.anchoredPosition = Vector2.zero;
+        buttonRect.sizeDelta = new Vector2(280f, 70f);
+
+        var buttonImage = buttonObj.AddComponent<Image>();
+        buttonImage.color = new Color(0.15f, 0.15f, 0.15f, 0.95f);
+
+        var button = buttonObj.AddComponent<Button>();
+        var colors = button.colors;
+        colors.normalColor = buttonImage.color;
+        colors.highlightedColor = new Color(0.22f, 0.22f, 0.22f, 1f);
+        colors.pressedColor = new Color(0.10f, 0.10f, 0.10f, 1f);
+        colors.selectedColor = colors.highlightedColor;
+        button.colors = colors;
+        button.onClick.AddListener(ReturnToMainMenu);
+
+        var buttonTextObj = new GameObject("Text");
+        buttonTextObj.transform.SetParent(buttonObj.transform, false);
+        var buttonTextRect = buttonTextObj.AddComponent<RectTransform>();
+        buttonTextRect.anchorMin = Vector2.zero;
+        buttonTextRect.anchorMax = Vector2.one;
+        buttonTextRect.offsetMin = Vector2.zero;
+        buttonTextRect.offsetMax = Vector2.zero;
+
+        var buttonText = buttonTextObj.AddComponent<TextMeshProUGUI>();
+        if (defaultFont != null) buttonText.font = defaultFont;
+        buttonText.text = "Main Menu";
+        buttonText.fontSize = 30;
+        buttonText.color = Color.white;
+        buttonText.alignment = TextAlignmentOptions.Center;
+
+        EventSystem.current?.SetSelectedGameObject(buttonObj);
         Debug.Log("win screen building ended");
+    }
+
+    void EnsureEventSystem()
+    {
+        if (FindAnyObjectByType<EventSystem>() != null) return;
+
+        var eventSystemObj = new GameObject("EventSystem");
+        eventSystemObj.AddComponent<EventSystem>();
+        eventSystemObj.AddComponent<StandaloneInputModule>();
+    }
+
+    void ReturnToMainMenu()
+    {
+        Time.timeScale = 1f;
+        SceneManager.LoadScene("MainMenu");
     }
 }

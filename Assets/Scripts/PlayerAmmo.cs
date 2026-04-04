@@ -130,6 +130,18 @@ public class PlayerAmmo : MonoBehaviour
         return true;
     }
 
+    public void AddMaxFlashes(int amount, bool refillToMax = true)
+    {
+        if (amount <= 0) return;
+
+        maxFlashes += amount;
+        Flashes = refillToMax
+            ? maxFlashes
+            : Mathf.Min(Flashes + amount, maxFlashes);
+
+        RefreshHUD();
+    }
+
     void BindHUD()
     {
         // If all three are already assigned in Inspector, nothing to do

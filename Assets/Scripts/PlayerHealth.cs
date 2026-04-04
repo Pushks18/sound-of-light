@@ -92,6 +92,18 @@ public class PlayerHealth : MonoBehaviour
         }
     }
 
+    public void AddMaxHealth(int amount, bool healToFull = true)
+    {
+        if (amount <= 0) return;
+
+        maxHealth += amount;
+        currentHealth = healToFull
+            ? maxHealth
+            : Mathf.Min(currentHealth + amount, maxHealth);
+
+        StatusHUD.Instance?.UpdateHP(currentHealth, maxHealth);
+    }
+
     IEnumerator DamageFlash()
     {
         if (sr == null) yield break;
