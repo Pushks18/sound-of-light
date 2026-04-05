@@ -112,12 +112,22 @@ public class GameManager : MonoBehaviour
 
     /// <summary>
     /// Called by boss scripts when the boss is defeated.
-    /// Triggers the same victory sequence as PlayerWon() but independently
-    /// of enemyCount, so it works even when isBossFight = true.
+    /// In progressive mode: continues to the next room (portal + post-boss heal).
+    /// In standalone boss scene: triggers the normal victory sequence.
     /// </summary>
     public void BossDefeated()
     {
-        PlayerWon();
+        if (DungeonManager.IsReturningFromBoss)
+        {
+            // Progressive run — play the room-clear portal effect then load origin scene.
+            // RoomClearPortal handles the scene transition when DungeonManager is absent.
+            RoomClearPortal.Spawn();
+        }
+        else
+        {
+            // Standalone VesperScene — end the game normally
+            PlayerWon();
+        }
     }
 
     void ActivateHuntMode()

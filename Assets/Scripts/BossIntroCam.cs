@@ -38,8 +38,16 @@ public class BossIntroCam : MonoBehaviour
 
     bool isBusy = false;
 
+    /// <summary>How long the camera takes to arrive at the boss during PlayIntro (speed-adjusted).</summary>
+    public float PanToTargetDuration => panToTargetDuration / Mathf.Max(0.01f, introSpeedMultiplier);
+
     void Start()
     {
+        // Auto-find references that may be null when spawned via DungeonManager prefab
+        if (cam == null)
+            cam = Camera.main;
+        if (cameraFollow == null && cam != null)
+            cameraFollow = cam.GetComponent<CameraFollow>();
         if (playerTransform == null)
         {
             var playerObj = GameObject.FindGameObjectWithTag("Player");

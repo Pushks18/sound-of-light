@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.Rendering.Universal;
+using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 using System.Collections;
 
@@ -187,9 +188,19 @@ public class RoomClearPortal : MonoBehaviour
         if (roomLight != null)
             Destroy(roomLight.gameObject);
 
-        // Wait for room build + collider regeneration before fading back in
-        var loadOp = DungeonManager.Instance?.LoadNextRoom("none");
-        if (loadOp != null) yield return loadOp;
+        // Wait for room build + collider regeneration before fading back in.
+        // When returning from a boss scene, DungeonManager lives in the origin scene
+        // (not here), so load that scene directly — DungeonManager.Start will restore state.
+        if (DungeonManager.Instance != null)
+        {
+            var loadOp = DungeonManager.Instance.LoadNextRoom("none");
+            if (loadOp != null) yield return loadOp;
+        }
+        else if (DungeonManager.IsReturningFromBoss && !string.IsNullOrEmpty(DungeonManager.OriginSceneName))
+        {
+            SceneManager.LoadScene(DungeonManager.OriginSceneName);
+            yield break;  // portal & canvas destroyed by scene load; no fade-in needed
+        }
 
         // --- Phase 6: Fade back in ---
         elapsed = 0f;

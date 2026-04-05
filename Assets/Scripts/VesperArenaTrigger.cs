@@ -27,6 +27,16 @@ public class VesperArenaTrigger : MonoBehaviour
     // multiple triggers fire in the same physics frame.
     private static bool introStarted = false;
 
+    void Awake()
+    {
+        // Auto-find serialized refs when spawned via DungeonManager prefab
+        // (Inspector assignments take priority; these only fill in nulls)
+        if (vesper == null)
+            vesper = GetComponentInParent<VesperAI>();
+        if (bossIntroCam == null)
+            bossIntroCam = FindAnyObjectByType<BossIntroCam>();
+    }
+
     void OnEnable()  { introStarted = false; }
     void OnDestroy() { introStarted = false; }
 
@@ -67,6 +77,10 @@ public class VesperArenaTrigger : MonoBehaviour
         if (rb != null) rb.linearVelocity = Vector2.zero;
 
         // ── 2. Camera intro ──────────────────────────────────────────────────
+        // Trigger eye fade-in timed to when the camera arrives at the boss
+        if (vesper != null && bossIntroCam != null)
+            vesper.TriggerIntroEyeFade(bossIntroCam.PanToTargetDuration, 1.5f);
+
         if (bossIntroCam != null)
             yield return StartCoroutine(bossIntroCam.PlayIntro(
                 vesper != null ? vesper.transform.position : Vector3.zero,

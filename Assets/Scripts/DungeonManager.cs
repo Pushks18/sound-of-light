@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.Rendering.Universal;
+using UnityEngine.SceneManagement;
 using System.Collections;
 using System.Collections.Generic;
 
@@ -66,10 +67,24 @@ public class DungeonManager : MonoBehaviour
     public GameObject enemyPrefab;
     public GameObject trapPrefab;
     public GameObject keyPrefab;
+
+    [Header("Boss Room (progressive mode)")]
+    [Tooltip("Every N rooms a boss scene is loaded. Set 0 to disable.")]
+    public int bossRoomInterval = 5;
+    [Tooltip("Name of the boss scene to load (must be in Build Settings).")]
+    public string bossSceneName = "VesperScene";
     // ─────────────────────────────────────────────────────────────────────
 
+    // ── Cross-scene run state (static — survives scene loads) ───────────────
+    /// <summary>Set before entering a boss scene so GameManager.BossDefeated knows where to return.</summary>
+    public static bool IsReturningFromBoss  = false;
+    public static int  RoomIndexBeforeBoss  = 0;
+    public static string OriginSceneName    = "";
+    // ────────────────────────────────────────────────────────────────────────
+
     private bool[,] currentGrid;
-    private int currentRoomIndex = 0;
+    private int  currentRoomIndex   = 0;
+    private bool _nextRoomIsPostBoss = false;
 
     public int CurrentRoomIndex => currentRoomIndex;
 
@@ -81,6 +96,17 @@ public class DungeonManager : MonoBehaviour
     void Start()
     {
         EnsureEndlessComponents();
+
+        // Returning from a boss scene — restore room index so the run continues correctly
+        if (IsReturningFromBoss)
+        {
+            currentRoomIndex   = RoomIndexBeforeBoss;  // next call increments to +1
+            _nextRoomIsPostBoss = true;
+            IsReturningFromBoss = false;
+            RoomIndexBeforeBoss = 0;
+            OriginSceneName     = "";
+        }
+
         LoadNextRoom("none");
     }
 
@@ -117,6 +143,28 @@ public class DungeonManager : MonoBehaviour
 
         currentRoomIndex++;
 
+        // ── Boss room: heal player then hand off to the dedicated boss scene ──
+        bool isBossRoom = progressiveMode
+                          && !string.IsNullOrEmpty(bossSceneName)
+                          && bossRoomInterval > 0
+                          && (currentRoomIndex % bossRoomInterval == 0);
+
+        if (isBossRoom)
+        {
+            // Apply normal per-floor heal before leaving (user decision: boss entry = normal heal)
+            if (currentRoomIndex > 1)
+                HealPlayer();
+
+            // Save run state so DungeonManager.Start can restore it on return
+            IsReturningFromBoss = true;
+            RoomIndexBeforeBoss = currentRoomIndex;
+            OriginSceneName     = SceneManager.GetActiveScene().name;
+
+            SceneManager.LoadScene(bossSceneName);
+            yield break;   // stop coroutine — scene is loading
+        }
+        // ─────────────────────────────────────────────────────────────────────
+
         ClearOldDoors();
         ClearOldEntities();
 
@@ -135,9 +183,9 @@ public class DungeonManager : MonoBehaviour
         int newEnemyCount;
         if (progressiveMode)
         {
-            int room = currentRoomIndex;
+            int room    = currentRoomIndex;
             int enemies = Mathf.Min(startEnemies + enemyGrowthPerRoom * (room - 1), maxEnemies);
-            int traps = Mathf.Min(startTraps + Mathf.FloorToInt(trapGrowthPerRoom * (room - 1)), maxTraps);
+            int traps   = Mathf.Min(startTraps + Mathf.FloorToInt(trapGrowthPerRoom * (room - 1)), maxTraps);
             newEnemyCount = SpawnProgressiveEntities(enemies, traps);
         }
         else
@@ -151,7 +199,17 @@ public class DungeonManager : MonoBehaviour
         if (progressiveMode)
         {
             if (currentRoomIndex > 1)
-                HealPlayer();
+            {
+                if (_nextRoomIsPostBoss)
+                {
+                    HealPostBoss();
+                    _nextRoomIsPostBoss = false;
+                }
+                else
+                {
+                    HealPlayer();
+                }
+            }
             EmitSpawnFlash();
         }
     }
@@ -389,6 +447,19 @@ public class DungeonManager : MonoBehaviour
         hp.currentHealth = Mathf.Min(hp.currentHealth + heal, hp.maxHealth);
         StatusHUD.Instance?.UpdateHP(hp.currentHealth, hp.maxHealth);
         Debug.Log($"Healed {heal} HP (now {hp.currentHealth}/{hp.maxHealth})");
+    }
+
+    void HealPostBoss()
+    {
+        var player = GameObject.FindGameObjectWithTag("Player");
+        if (player == null) return;
+
+        var hp = player.GetComponent<PlayerHealth>();
+        if (hp == null) return;
+
+        hp.currentHealth = Mathf.Min(hp.currentHealth + 2, hp.maxHealth);
+        StatusHUD.Instance?.UpdateHP(hp.currentHealth, hp.maxHealth);
+        Debug.Log($"Post-boss heal: +2 HP (now {hp.currentHealth}/{hp.maxHealth})");
     }
 
     // ── Shared helpers ──────────────────────────────────────────────────
