@@ -1646,6 +1646,103 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &1023928950
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1023928954}
+  - component: {fileID: 1023928953}
+  - component: {fileID: 1023928952}
+  - component: {fileID: 1023928951}
+  m_Layer: 0
+  m_Name: GameManager
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &1023928951
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1023928950}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7e73be5313b016d4d804b051c051be46, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::RunKillAnalytics
+--- !u!114 &1023928952
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1023928950}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3c4bc634e760ce946a4257686c2fd2a4, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::SendToGoogle
+  URL: https://docs.google.com/forms/d/e/1FAIpQLSdMdclQh_ml9uNfl1QDL6ylG4KMJijfRgLQQvNSZe2ifryu2Q/formResponse
+  deathPositionEntry: 
+  runSessionIdEntry: entry.1836047267
+  runOutcomeEntry: entry.13699829
+  totalKillsEntry: entry.316910690
+  bulletKillsEntry: entry.1275383987
+  slashKillsEntry: entry.2118033398
+  trapKillsEntry: entry.141215274
+  dashKillsEntry: entry.705370448
+  unknownKillsEntry: entry.429632131
+  ttkSessionIdEntry: entry.1445909754
+  ttkEnemyNameEntry: entry.679796372
+  ttkSecondsEntry: entry.588633834
+  ttkKillMethodEntry: entry.2135333005
+  ttkDamageTypesEntry: entry.556402948
+  interactionSessionIdEntry: entry.1288133725
+  interactionIndexEntry: entry.1218770745
+  interactionDamageTakenEntry: entry.1618313918
+  interactionDurationSecondsEntry: entry.585922166
+  interactionEndReasonEntry: entry.1208376492
+--- !u!114 &1023928953
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1023928950}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c3409c2d23f254691974f6288a33a7f0, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::GameManager
+  endText: {fileID: 0}
+  gameplayUI: {fileID: 0}
+  enemyCount: 0
+  isBossFight: 0
+  huntModeThreshold: 3
+  victoryLightDuration: 1
+  victoryLightIntensity: 1
+--- !u!4 &1023928954
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1023928950}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: -5.38044, y: -1.2708, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1285196747
 GameObject:
   m_ObjectHideFlags: 0
@@ -2182,3 +2279,4 @@ SceneRoots:
   - {fileID: 207522363}
   - {fileID: 293033598}
   - {fileID: 680797675}
+  - {fileID: 1023928954}
