@@ -148,6 +148,7 @@ public class GameManager : MonoBehaviour
         // Just mark game as ended. The DeathScreen handles the death UI,
         // pause, and scene restart.
         gameEnded = true;
+        RunKillAnalytics.Instance?.SendRunSummary("death");
     }
 
     [Header("Victory Light-Up")]
@@ -159,6 +160,7 @@ public class GameManager : MonoBehaviour
         if (gameEnded) return;
 
         gameEnded = true;
+        RunKillAnalytics.Instance?.SendRunSummary("win");
         StartCoroutine(VictorySequence());
     }
 

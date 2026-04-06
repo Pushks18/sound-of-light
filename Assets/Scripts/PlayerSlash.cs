@@ -192,7 +192,7 @@ public class PlayerSlash : MonoBehaviour
             if (distance > 0.1f && IsBlockedByWall((Vector2)transform.position, (Vector2)health.transform.position, health.gameObject))
                 continue;
 
-            health.TakeDamage(slashDamage);
+            health.TakeDamage(slashDamage, RunKillAnalytics.DamageMethodSlash);
         }
     }
 

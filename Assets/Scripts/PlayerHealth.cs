@@ -85,6 +85,7 @@ public class PlayerHealth : MonoBehaviour
 
         iFrameTimer = iFrameDuration;
         currentHealth -= dmg;
+        RunKillAnalytics.Instance?.RecordPlayerDamageTaken(dmg);
 
         StatusHUD.Instance?.UpdateHP(currentHealth, maxHealth);
 

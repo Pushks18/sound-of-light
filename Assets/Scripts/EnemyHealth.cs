@@ -1,5 +1,6 @@
 using UnityEngine;
 using System.Collections;
+using System.Collections.Generic;
 
 public class EnemyHealth : MonoBehaviour
 {
@@ -17,6 +18,10 @@ public class EnemyHealth : MonoBehaviour
     private float damageRevealTimer = 0f;
     private float litBufferTimer = 0f;
     private const float LitBufferSeconds = 0.12f;
+    private string lastDamageMethod = RunKillAnalytics.DamageMethodUnknown;
+    private bool hasTakenTrackedDamage = false;
+    private float firstDamageTimestamp = 0f;
+    private readonly HashSet<string> damageTypesUsed = new HashSet<string>();
 
     void Awake()
     {
@@ -45,9 +50,19 @@ public class EnemyHealth : MonoBehaviour
         healthBar.SetVisible(shouldShowBar);
     }
 
-    public void TakeDamage(int dmg)
+    public void TakeDamage(int dmg, string damageMethod = RunKillAnalytics.DamageMethodUnknown)
     {
         if (isDead) return;
+
+        lastDamageMethod = NormalizeDamageMethod(damageMethod);
+
+        if (!hasTakenTrackedDamage)
+        {
+            hasTakenTrackedDamage = true;
+            firstDamageTimestamp = Time.time;
+        }
+
+        damageTypesUsed.Add(lastDamageMethod);
 
         currentHealth -= dmg;
         if (currentHealth < 0) currentHealth = 0;
@@ -90,6 +105,9 @@ public class EnemyHealth : MonoBehaviour
         if (isDead) return;
         isDead = true;
 
+        float timeToKillSeconds = hasTakenTrackedDamage ? Mathf.Max(0f, Time.time - firstDamageTimestamp) : 0f;
+        RunKillAnalytics.Instance?.RecordEnemyTimeToKill(gameObject.name, timeToKillSeconds, damageTypesUsed, lastDamageMethod);
+        RunKillAnalytics.Instance?.RecordEnemyKill(lastDamageMethod);
         OnEnemyKilled?.Invoke();
         GameManager.Instance?.EnemyKilled();
 
@@ -127,5 +145,13 @@ public class EnemyHealth : MonoBehaviour
 
         Destroy(gameObject);
         StatusHUD.Instance?.DecrementEnemies();
+    }
+
+    string NormalizeDamageMethod(string damageMethod)
+    {
+        if (string.IsNullOrWhiteSpace(damageMethod))
+            return RunKillAnalytics.DamageMethodUnknown;
+
+        return damageMethod.Trim().ToLowerInvariant();
     }
 }

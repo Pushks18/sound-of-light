@@ -102,7 +102,7 @@ public class Bullet : MonoBehaviour
         // Player's bullet hits enemy body
         if (CompareTag("Bullet") && other.CompareTag("Enemy"))
         {
-            other.GetComponent<EnemyHealth>()?.TakeDamage(1);
+            other.GetComponent<EnemyHealth>()?.TakeDamage(1, RunKillAnalytics.DamageMethodBullet);
             Destroy(gameObject);
             return;
         }

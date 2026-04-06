@@ -153,7 +153,7 @@ public class PlayerDash : MonoBehaviour
             {
                 Debug.Log($"[Dash] HIT {enemy.name} for {contactDamage} damage!");
                 hitEnemiesThisDash.Add(id);
-                enemy.TakeDamage(contactDamage);
+                enemy.TakeDamage(contactDamage, RunKillAnalytics.DamageMethodDash);
 
                 var ai = enemy.GetComponent<EnemyAI>();
                 if (ai != null) ai.Stun(stunDuration);

@@ -108,9 +108,9 @@ public class Trap : MonoBehaviour
         else if (affectsEnemies && other.CompareTag("Enemy"))
         {
             cooldownTimers[id] = Time.time + cooldownAfterHit;
-            var health = other.GetComponent<EnemyHealth>();
-            if (health != null)
-                StartCoroutine(ApplyDamageEnemy(health));
+        var health = other.GetComponent<EnemyHealth>();
+        if (health != null)
+            StartCoroutine(ApplyDamageEnemy(health));
         }
     }
 
@@ -200,7 +200,7 @@ public class Trap : MonoBehaviour
     {
         yield return new WaitForSecondsRealtime(0.15f);
         if (health != null)
-            health.TakeDamage(damage);
+            health.TakeDamage(damage, RunKillAnalytics.DamageMethodTrap);
 
         if (emitLightOnHit)
             SpawnLightBurst();
