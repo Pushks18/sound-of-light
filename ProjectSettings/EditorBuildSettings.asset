@@ -29,5 +29,14 @@ EditorBuildSettings:
   - enabled: 1
     path: Assets/Scenes/VesperScene.unity
     guid: 3a92cd1b800cff143ba4027c8a593b03
+  - enabled: 1
+    path: Assets/Scenes/Level1.unity
+    guid: 1df05cefd01254c5abafe6386b9ada24
+  - enabled: 1
+    path: Assets/Scenes/Level2.unity
+    guid: 673eaa95bf61249c3bf7f7582511385b
+  - enabled: 1
+    path: Assets/Scenes/Level3.unity
+    guid: 444082534b3b34495b5152ed006b00fe
   m_configObjects: {}
   m_UseUCBPForAssetBundles: 0

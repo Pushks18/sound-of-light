@@ -30,6 +30,12 @@ public class PauseMenu : MonoBehaviour
     {
         // Don't allow pause if game has ended (death/victory)
         if (GameManager.Instance != null && GameManager.Instance.gameEnded) return;
+        LevelExit exit = FindFirstObjectByType<LevelExit>();
+        if (exit != null)
+        {
+            bool done = exit.GetLevelDone();
+            if (done) return;
+        }
 
         if (Input.GetKeyDown(KeyCode.Escape))
         {

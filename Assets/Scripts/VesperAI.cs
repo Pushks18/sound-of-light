@@ -788,7 +788,7 @@ public class VesperAI : MonoBehaviour
                 mb.enabled = true;
         }
         // Compensate flash cooldown for the time it was frozen while disabled
-        playerTransform.GetComponent<PlayerLightWave>()?.AdvanceCooldown(disabledDuration);
+        playerTransform.GetComponent<PlayerAmmo>()?.AdvanceFlashCooldown(disabledDuration);
     }
 
     IEnumerator ActivationSequence()

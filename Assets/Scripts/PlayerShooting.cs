@@ -36,22 +36,23 @@ public class PlayerShooting : MonoBehaviour
             return;
         }
 
-        // Check both resources before spending either
-        if (PlayerAmmo.Instance != null && PlayerAmmo.Instance.Bullets <= 0)
+        if (PlayerAmmo.Instance == null)
         {
-            Debug.Log("[Shoot] Out of ammo!");
+            Debug.Log("[Shoot] No PlayerAmmo instance!");
             return;
         }
 
-        if (lightEnergy != null && !lightEnergy.CanSpend(energyCost))
+        if (!PlayerAmmo.Instance.TrySpendBullet())
+        {
+            Debug.Log("[Shoot] Bullet blocked by ammo/cooldown.");
+            return;
+        }
+
+        if (lightEnergy != null && !lightEnergy.TrySpend(energyCost))
         {
             Debug.Log($"[Shoot] Not enough energy. Current: {lightEnergy.CurrentEnergy}, Cost: {energyCost}");
             return;
         }
-
-        // Both checks passed — now spend
-        PlayerAmmo.Instance?.TrySpendBullet();
-        lightEnergy?.TrySpend(energyCost);
 
         Vector2 direction = playerMovement.AimDirection;
         float angle = Mathf.Atan2(direction.y, direction.x) * Mathf.Rad2Deg - 90f;

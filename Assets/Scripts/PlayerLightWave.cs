@@ -8,7 +8,6 @@ public class PlayerLightWave : MonoBehaviour
     public float waveIntensity = 2.5f;
     public float waveDuration = 5f;
     public float energyCost = 10f;
-    public float cooldown = 20f;
     public Color waveColor = new Color(1f, 0.95f, 0.8f);
 
     [Header("Idle Auto-Flash")]
@@ -19,7 +18,6 @@ public class PlayerLightWave : MonoBehaviour
     public float idleFlashIntensityMult = 0.5f;
 
     private LightEnergy lightEnergy;
-    private float cooldownTimer;
     private float idleTimer;
 
     void Start()
@@ -27,26 +25,19 @@ public class PlayerLightWave : MonoBehaviour
         lightEnergy = GetComponent<LightEnergy>();
     }
 
-    /// <summary>
-    /// Compensates for time spent disabled (e.g. during boss cutscenes).
-    /// Advances the internal cooldown timer so it stays in sync with the UI.
-    /// </summary>
-    public void AdvanceCooldown(float seconds)
-    {
-        cooldownTimer = Mathf.Max(0f, cooldownTimer - seconds);
-    }
-
     void Update()
     {
-        if (cooldownTimer > 0f)
-        {
-            cooldownTimer -= Time.deltaTime;
-            //GameUIManager.Instance?.UpdateFlash(cooldownTimer > 0f ? cooldownTimer : 0f);
-        }
-
         // Track idle time — any key/mouse resets it
         // Skip idle flash if game has ended (portal sequence, death screen)
         bool gameActive = GameManager.Instance == null || !GameManager.Instance.gameEnded;
+        //For Levels block if player has reached the exit
+        LevelExit exit = FindFirstObjectByType<LevelExit>();
+        if (exit != null)
+        {
+            bool done = exit.GetLevelDone();
+            if (done) return;
+        }
+
         if (!gameActive || Input.anyKey || Input.GetAxis("Mouse X") != 0f || Input.GetAxis("Mouse Y") != 0f)
         {
             idleTimer = 0f;
@@ -61,33 +52,32 @@ public class PlayerLightWave : MonoBehaviour
             }
         }
 
-        if (Input.GetKeyDown(KeyCode.L) && cooldownTimer <= 0f)
+        if (Input.GetKeyDown(KeyCode.L))
         {
-            // Check both resources before spending either
-            if (PlayerAmmo.Instance != null && PlayerAmmo.Instance.Flashes <= 0)
-            {
-                Debug.Log("[Flash] No flashes remaining!");
-            }
-            else if (lightEnergy != null && !lightEnergy.CanSpend(energyCost))
+            if (PlayerAmmo.Instance == null)
+                return;
+
+            if (lightEnergy != null && !lightEnergy.CanSpend(energyCost))
             {
                 Debug.Log("[Flash] Not enough energy!");
+                return;
             }
-            else
-            {
-                // Both checks passed — now spend
-                PlayerAmmo.Instance?.TrySpendFlash();
-                lightEnergy?.TrySpend(energyCost);
 
-                EmitLightWave();
-                cooldownTimer = cooldown;
-                StatusHUD.Instance?.StartFlashCooldown(cooldown);
+            if (!PlayerAmmo.Instance.TrySpendFlash())
+            {
+                Debug.Log("[Flash] Blocked (no charges or cooldown)");
+                return;
             }
+
+            lightEnergy?.TrySpend(energyCost);
+
+            EmitLightWave();
         }
     }
 
     void EmitIdleFlash()
     {
-        // Free auto-flash — smaller and dimmer than a real flash, no cooldown/ammo cost
+        // Free auto-flash - smaller and dimmer than a real flash, no cooldown/ammo cost
         var waveObj = new GameObject("IdleFlash");
         waveObj.transform.position = transform.position;
         waveObj.tag = "LightSource";

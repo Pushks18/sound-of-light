@@ -106,32 +106,36 @@ public class PlayerMovement : MonoBehaviour
         if (GameManager.Instance != null && GameManager.Instance.gameEnded)
             return;
 
+        //For Levels block dashing if player has reached the exit
+        LevelExit exit = FindFirstObjectByType<LevelExit>();
+        if (exit != null)
+        {
+            bool done = exit.GetLevelDone();
+            if (done) {
+                return;
+            }
+        }
+
         if (Input.GetKeyDown(KeyCode.LeftShift) && dashCooldownTimer <= 0f)
         {
-            // Check both resources before spending either
-            if (PlayerAmmo.Instance != null && PlayerAmmo.Instance.Dashes <= 0)
-            {
-                // no dashes left — don't proceed
-            }
-            else if (lightEnergy != null && !lightEnergy.CanSpend(dashEnergyCost))
-            {
-                // not enough energy — don't proceed
-            }
-            else
-            {
-                // Both checks passed — now spend
-                PlayerAmmo.Instance?.TrySpendDash();
-                lightEnergy?.TrySpend(dashEnergyCost);
+            if (PlayerAmmo.Instance == null)
+                return;
 
-                dashDirection = aimDirection;
-                dashTimer = dashDuration;
-                dashCooldownTimer = dashCooldown;
+            if (lightEnergy != null && !lightEnergy.CanSpend(dashEnergyCost))
+                return;
 
-                // Let the player pass through enemies while dashing
-                Physics2D.IgnoreLayerCollision(playerLayer, enemyLayer, true);
+            if (!PlayerAmmo.Instance.TrySpendDash())
+                return;
 
-                OnDashStart?.Invoke();
-            }
+            lightEnergy?.TrySpend(dashEnergyCost);
+
+            dashDirection = aimDirection;
+            dashTimer = dashDuration;
+            dashCooldownTimer = dashCooldown;
+
+            Physics2D.IgnoreLayerCollision(playerLayer, enemyLayer, true);
+
+            OnDashStart?.Invoke();
         }
     }
 
@@ -144,10 +148,18 @@ public class PlayerMovement : MonoBehaviour
 
     void FixedUpdate()
     {
-        if (dashTimer > 0f)
+        if (dashTimer > 0f) {
             rb.linearVelocity = dashDirection * dashSpeed;
-        else
+        } else {
+            LevelExit exit = FindFirstObjectByType<LevelExit>();
+            if (exit != null)
+            {
+                bool done = exit.GetLevelDone();
+                rb.linearVelocity = moveInput * 0;
+                if (done) return;
+            }
             rb.linearVelocity = moveInput * moveSpeed;
+        }
     }
 
     void UpdateAimPip()

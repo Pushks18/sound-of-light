@@ -59,6 +59,8 @@ public class EnemyAI : MonoBehaviour
         markLight.color = new Color(1f, 0.3f, 0.2f);
         markLight.shadowsEnabled = false;
         markLight.enabled = false;
+        
+        StatusHUD.Instance.UpdateEnemies();
     }
 
     void Update()

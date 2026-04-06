@@ -23,6 +23,11 @@ public class PlayerAmmo : MonoBehaviour
     private static readonly Color ColEmpty = new Color(1f, 0.3f, 0.3f, 0.8f);
     private static readonly Color ColKey = new Color(1f, 0.85f, 0.2f, 1f);
 
+    [Header("Ability Cooldowns")]
+    public float bulletCooldown = 1.0f;
+    public float dashCooldown = 1.0f;
+    public float flashCooldown = 20.0f;
+
     [Header("Bullet Regen")]
     public float bulletRegenDelay = 5f;
     public float bulletRegenInterval = 0.5f;
@@ -38,6 +43,10 @@ public class PlayerAmmo : MonoBehaviour
     private float lastBulletUseTime = Mathf.NegativeInfinity;
     private float lastDashUseTime = Mathf.NegativeInfinity;
     private float lastFlashUseTime = Mathf.NegativeInfinity;
+
+    private float nextBulletUseTime = Mathf.NegativeInfinity;
+    private float nextDashUseTime = Mathf.NegativeInfinity;
+    private float nextFlashUseTime = Mathf.NegativeInfinity;
 
     private float bulletRegenAccum;
     private float dashRegenAccum;
@@ -96,36 +105,47 @@ public class PlayerAmmo : MonoBehaviour
             }
         }
 
-        if (Bullets < maxBullets || Dashes < maxDashes || Flashes < maxFlashes)
-            RefreshHUD();
+        RefreshHUD();
     }
 
     public bool TrySpendBullet()
     {
+        if (Time.time < nextBulletUseTime) return false;
         if (Bullets <= 0) return false;
+
         Bullets--;
         lastBulletUseTime = Time.time;
+        nextBulletUseTime = Time.time + bulletCooldown;
         bulletRegenAccum = 0f;
+
         RefreshHUD();
         return true;
     }
 
     public bool TrySpendDash()
     {
+        if (Time.time < nextDashUseTime) return false;
         if (Dashes <= 0) return false;
+
         Dashes--;
         lastDashUseTime = Time.time;
+        nextDashUseTime = Time.time + dashCooldown;
         dashRegenAccum = 0f;
+
         RefreshHUD();
         return true;
     }
 
     public bool TrySpendFlash()
     {
+        if (Time.time < nextFlashUseTime) return false;
         if (Flashes <= 0) return false;
+
         Flashes--;
         lastFlashUseTime = Time.time;
+        nextFlashUseTime = Time.time + flashCooldown;
         flashRegenAccum = 0f;
+
         RefreshHUD();
         return true;
     }
@@ -144,41 +164,51 @@ public class PlayerAmmo : MonoBehaviour
 
     void BindHUD()
     {
-        // If all three are already assigned in Inspector, nothing to do
         if (bulletLabel != null && dashLabel != null && flashLabel != null) return;
 
-        // Fallback: search all TMP components in the scene by GameObject name
         var all = FindObjectsByType<TextMeshProUGUI>(FindObjectsSortMode.None);
         foreach (var t in all)
         {
             string n = t.gameObject.name;
             if (bulletLabel == null && n == "Bullets") bulletLabel = t;
-            if (dashLabel   == null && n == "Dash")    dashLabel   = t;
-            if (flashLabel  == null && n == "Flash" && t.transform.parent?.name == "AmmoContainer") flashLabel = t;
+            if (dashLabel == null && n == "Dash") dashLabel = t;
+            if (flashLabel == null && n == "Flash" && t.transform.parent?.name == "AmmoContainer") flashLabel = t;
         }
 
         if (bulletLabel == null) Debug.LogWarning("PlayerAmmo: Could not find Bullets label.");
-        if (dashLabel   == null) Debug.LogWarning("PlayerAmmo: Could not find Dash label.");
-        if (flashLabel  == null) Debug.LogWarning("PlayerAmmo: Could not find Flash label.");
+        if (dashLabel == null) Debug.LogWarning("PlayerAmmo: Could not find Dash label.");
+        if (flashLabel == null) Debug.LogWarning("PlayerAmmo: Could not find Flash label.");
     }
 
     void RefreshHUD()
     {
         if (bulletLabel != null)
-            bulletLabel.text = FormatRow("[K] Bullets", Bullets, maxBullets);
+            bulletLabel.text = FormatRow("[K] Bullets", Bullets, maxBullets, GetCooldownRemaining(nextBulletUseTime));
 
         if (dashLabel != null)
-            dashLabel.text = FormatRow("[Shift] Dash", Dashes, maxDashes);
+            dashLabel.text = FormatRow("[Shift] Dash", Dashes, maxDashes, GetCooldownRemaining(nextDashUseTime));
 
         if (flashLabel != null)
-            flashLabel.text = FormatRow("[L] Flash", Flashes, maxFlashes);
+            flashLabel.text = FormatRow("[L] Flash", Flashes, maxFlashes, GetCooldownRemaining(nextFlashUseTime));
     }
 
-    string FormatRow(string label, int current, int max)
+    float GetCooldownRemaining(float nextUseTime)
     {
+        return Mathf.Max(0f, nextUseTime - Time.time);
+    }
+
+    string FormatRow(string label, int current, int max, float cooldownRemaining)
+    {
+        string keyHex = ColorUtility.ToHtmlStringRGB(ColKey);
+
+        if (cooldownRemaining > 0f)
+        {
+            string time = cooldownRemaining.ToString("0.00");
+            return $"<color=#FFFFFF>{time}</color> <color=#{keyHex}>{label}</color> ";
+        }
+
         Color c = current > 0 ? ColAvailable : ColEmpty;
         string hex = ColorUtility.ToHtmlStringRGB(c);
-        string keyHex = ColorUtility.ToHtmlStringRGB(ColKey);
         string pips = BuildPips(current, max);
 
         return $"<color=#{hex}>{pips}</color> <color=#{keyHex}>{label}</color>  ";
@@ -194,5 +224,22 @@ public class PlayerAmmo : MonoBehaviour
             sb.Append(i < current ? full : empty);
 
         return sb.ToString();
+    }
+
+    public void AdvanceFlashCooldown(float amount)
+    {
+        if (amount <= 0f) return;
+
+        // If no cooldown is active, do nothing
+        if (Time.time >= nextFlashUseTime) return;
+
+        // Reduce remaining cooldown
+        nextFlashUseTime -= amount;
+
+        // Clamp so it doesn't go into the past unnecessarily
+        if (nextFlashUseTime < Time.time)
+            nextFlashUseTime = Time.time;
+
+        RefreshHUD();
     }
 }

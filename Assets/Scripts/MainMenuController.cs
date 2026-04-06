@@ -5,35 +5,19 @@ using TMPro;
 
 public class MainMenuController : MonoBehaviour
 {
+    [SerializeField] private GameObject mainScreen;
+    [SerializeField] private GameObject levelScreen;
+    public static bool goToLevelOnLoad = false;
+
     void Start()
     {
         var playButton = GameObject.Find("PlayButton");
         if (playButton == null) return;
-
         var parent = playButton.transform.parent;
-
-        // "Endless (Beta)" button — below Let's Roll
-        AddButton(playButton, parent, "EndlessButton", "Endless (Beta)", -330f, LoadEndless);
-
-        // "Room Gen" button — below Endless
-        AddButton(playButton, parent, "RoomGenButton", "Room Gen", -480f, LoadRoomGen);
-    }
-
-    void AddButton(GameObject template, Transform parent, string name, string label, float yOffset, UnityEngine.Events.UnityAction action)
-    {
-        var btn = Instantiate(template, parent);
-        btn.name = name;
-
-        btn.GetComponent<RectTransform>().anchoredPosition = new Vector2(0f, yOffset);
-
-        var tmp = btn.GetComponentInChildren<TMP_Text>();
-        if (tmp != null) tmp.text = label;
-
-        var b = btn.GetComponent<Button>();
-        if (b != null)
+        if (goToLevelOnLoad)
         {
-            b.onClick.RemoveAllListeners();
-            b.onClick.AddListener(action);
+            GoToLevelScreen();
+            goToLevelOnLoad = false;
         }
     }
 
@@ -44,7 +28,6 @@ public class MainMenuController : MonoBehaviour
 
     public void LoadGame()
     {
-        //Debug.Log("Play clicked");
         SceneManager.LoadScene("GameScene");
     }
 
@@ -61,5 +44,32 @@ public class MainMenuController : MonoBehaviour
     public void QuitGame()
     {
         Application.Quit();
+    }
+
+    public void GoToLevelScreen()
+    {
+        mainScreen.SetActive(false);
+        levelScreen.SetActive(true);
+    }
+
+    public void GoToMainScreen()
+    {
+        mainScreen.SetActive(true);
+        levelScreen.SetActive(false);
+    }
+
+    public void LoadLevel1()
+    {
+        SceneManager.LoadScene("Level1");
+    }
+
+    public void LoadLevel2()
+    {
+        SceneManager.LoadScene("Level2");
+    }
+
+    public void LoadLevel3()
+    {
+        SceneManager.LoadScene("Level3");
     }
 }

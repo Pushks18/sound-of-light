@@ -7,13 +7,10 @@ public class StatusHUD : MonoBehaviour
 
     private int currentHP = 5;
     private int maxHP = 5;
-    private float flashCooldown = 0f;
-    private float flashMaxCD = 20f;
     private int enemiesLeft = 0;
 
     [Header("HUD Labels (assign in Inspector, or leave blank to auto-find by name)")]
     [SerializeField] private TextMeshProUGUI hpLabel;
-    [SerializeField] private TextMeshProUGUI flashLabel;
     [SerializeField] private TextMeshProUGUI enemyLabel;
 
     private static readonly Color ColGreen  = new Color(0.35f, 1f,   0.45f, 1f);
@@ -31,9 +28,7 @@ public class StatusHUD : MonoBehaviour
     {
         BindHUD();
         RefreshHP();
-        RefreshFlash();
         RefreshEnemy();
-        UpdateEnemies();
     }
 
     void OnDestroy()
@@ -41,28 +36,11 @@ public class StatusHUD : MonoBehaviour
         if (Instance == this) Instance = null;
     }
 
-    void Update()
-    {
-        if (flashCooldown > 0f)
-        {
-            flashCooldown -= Time.deltaTime;
-            if (flashCooldown < 0f) flashCooldown = 0f;
-            RefreshFlash();
-        }
-    }
-
     public void UpdateHP(int current, int max = -1)
     {
         currentHP = current;
         if (max > 0) maxHP = max;
         RefreshHP();
-    }
-
-    public void StartFlashCooldown(float cooldownDuration)
-    {
-        flashCooldown = cooldownDuration;
-        flashMaxCD = cooldownDuration;
-        RefreshFlash();
     }
 
     public void UpdateEnemies()
@@ -79,8 +57,8 @@ public class StatusHUD : MonoBehaviour
 
     void BindHUD()
     {
-        // If all three are already assigned in Inspector, nothing to do
-        if (hpLabel != null && flashLabel != null && enemyLabel != null) return;
+        // If both are already assigned in Inspector, nothing to do
+        if (hpLabel != null && enemyLabel != null) return;
 
         // Fallback: search all TMP components in the scene by GameObject name
         var all = FindObjectsByType<TextMeshProUGUI>(FindObjectsSortMode.None);
@@ -88,12 +66,10 @@ public class StatusHUD : MonoBehaviour
         {
             string n = t.gameObject.name;
             if (hpLabel    == null && n == "HP")      hpLabel    = t;
-            if (flashLabel == null && n == "Flash" && t.transform.parent?.name == "StatusContainer") flashLabel = t;
             if (enemyLabel == null && n == "Enemies") enemyLabel = t;
         }
 
         if (hpLabel    == null) Debug.LogWarning("StatusHUD: Could not find HP label.");
-        if (flashLabel == null) Debug.LogWarning("StatusHUD: Could not find Flash label.");
         if (enemyLabel == null) Debug.LogWarning("StatusHUD: Could not find Enemies label.");
     }
 
@@ -106,24 +82,6 @@ public class StatusHUD : MonoBehaviour
         string pips = BuildPips(currentHP, maxHP, "♥", "♡");
 
         hpLabel.text = $"<b>HP</b>  <color=#{hex}>{pips}</color>";
-    }
-
-    void RefreshFlash()
-    {
-        if (flashLabel == null) return;
-
-        if (flashCooldown <= 0f)
-        {
-            string readyHex = ColorUtility.ToHtmlStringRGB(ColReady);
-            flashLabel.text = $"<b>Flash</b>  <color=#{readyHex}>READY</color>";
-        }
-        else
-        {
-            string cdHex = ColorUtility.ToHtmlStringRGB(ColRed);
-            int filled = Mathf.RoundToInt((1f - flashCooldown / flashMaxCD) * 10f);
-            string bar = BuildPips(filled, 10, "■", "□");
-            flashLabel.text = $"<b>Flash</b>  <color=#{cdHex}>{bar} {flashCooldown:F1}s</color>";
-        }
     }
 
     void RefreshEnemy()

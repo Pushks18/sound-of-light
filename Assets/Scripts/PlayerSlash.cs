@@ -34,6 +34,13 @@ public class PlayerSlash : MonoBehaviour
         if (cooldownTimer > 0f)
             cooldownTimer -= Time.deltaTime;
 
+        LevelExit exit = FindFirstObjectByType<LevelExit>();
+        if (exit != null)
+        {
+            bool done = exit.GetLevelDone();
+            if (done) return;
+        }
+
         if (Input.GetKeyDown(KeyCode.J) && cooldownTimer <= 0f)
         {
             PerformSlash();

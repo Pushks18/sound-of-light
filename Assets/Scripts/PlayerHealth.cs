@@ -75,6 +75,13 @@ public class PlayerHealth : MonoBehaviour
     {
         if (isDead || iFrameTimer > 0f) return;
         if (GameManager.Instance != null && GameManager.Instance.gameEnded) return;
+        //For Levels block if player has reached the exit
+        LevelExit exit = FindFirstObjectByType<LevelExit>();
+        if (exit != null)
+        {
+            bool done = exit.GetLevelDone();
+            if (done) return;
+        }
 
         iFrameTimer = iFrameDuration;
         currentHealth -= dmg;
