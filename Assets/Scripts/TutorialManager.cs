@@ -16,8 +16,8 @@ public class TutorialManager : MonoBehaviour
     public Light2D globalLight;
 
     // ── Light levels ─────────────────────────────────────────────────────────
-    private const float LIGHT_BRIGHT = 0f;      // full dark — only light sources illuminate
-    private const float LIGHT_DIM    = 0f;      // Room 1 — same, already pitch black
+    private const float LIGHT_BRIGHT = 0.6f;     // visible — player can see the room
+    private const float LIGHT_DIM    = 0f;       // pitch black — teaches flash mechanic
 
     // ── State ─────────────────────────────────────────────────────────────────
     private int  currentRoom      = 0;   // which tutorial room the player is in
