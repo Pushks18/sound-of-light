@@ -135,6 +135,7 @@ public class VesperAI : MonoBehaviour
     bool         inSlashStagger    = false;
     float        slashStaggerTimer = 0f;
     bool         slashStaggerAvailable = true;  // resets after each teleport
+    bool         requiresFlashToVulnerable = false; // true after every teleport — must re-illuminate with L-flash
 
     int          kHitCount              = 0;
     int          dashHitCount           = 0;
@@ -338,6 +339,10 @@ public class VesperAI : MonoBehaviour
 
     void OnBecameLit()
     {
+        // Only a confirmed post-teleport flash clears the invincibility flag
+        if (!isTeleporting)
+            requiresFlashToVulnerable = false;
+
         // Start vulnerable window
         vulnerableTimer = vulnerableWindow;
 
@@ -401,7 +406,7 @@ public class VesperAI : MonoBehaviour
         // before Stay2D in the same physics step — so isCurrentlyLit is always false at
         // bullet-hit time even when a persistent LightSource (L-flash) is overlapping.
         // wasLitLastFrame = true means the light was confirmed overlapping last completed step.
-        if (vulnerableTimer <= 0f) return;
+        if (vulnerableTimer <= 0f || requiresFlashToVulnerable) return;
         if (state != BossState.InBattle) return;
         if (isTeleporting) { Destroy(bulletCollider.gameObject); return; }  // already escaping
 
@@ -432,7 +437,7 @@ public class VesperAI : MonoBehaviour
 
     public void TakeDashDamage(float amount)
     {
-        if (vulnerableTimer <= 0f) return;
+        if (vulnerableTimer <= 0f || requiresFlashToVulnerable) return;
         if (state != BossState.InBattle) return;
         if (isTeleporting) return;
 
@@ -454,7 +459,7 @@ public class VesperAI : MonoBehaviour
 
     void HandleSlashHit()
     {
-        if (vulnerableTimer <= 0f) return;
+        if (vulnerableTimer <= 0f || requiresFlashToVulnerable) return;
         if (state != BossState.InBattle) return;
         if (isTeleporting) return;  // already escaping — ignore hits during fade-out
 
@@ -568,6 +573,9 @@ public class VesperAI : MonoBehaviour
         slashStaggerAvailable = true;
         inSlashStagger        = false;
         vulnerableTimer       = 0f;
+        isCurrentlyLit        = false;
+        wasLitLastFrame       = false;
+        requiresFlashToVulnerable = true;
 
         // Fade ambient light back to black while camera pans back — run concurrently
         StartCoroutine(FadeGlobalLight(0f, phase2AmbientFadeOutDuration));
@@ -893,6 +901,9 @@ public class VesperAI : MonoBehaviour
         slashStaggerAvailable = true;
         inSlashStagger        = false;
         vulnerableTimer       = 0f;
+        isCurrentlyLit        = false;
+        wasLitLastFrame       = false;
+        requiresFlashToVulnerable = true;
 
         isTeleporting = false;
         // Body is still at bodyMaxAlpha. Update will fade it to bodyMinAlpha
@@ -904,10 +915,26 @@ public class VesperAI : MonoBehaviour
         if (playerTransform == null) return roomCenter;
 
         Vector2 playerPos = playerTransform.position;
-        float   bestDist  = -1f;
-        Vector2 bestPos   = roomCenter;
 
-        for (int i = 0; i < 10; i++)
+        // Collect all active LightSource positions for distance scoring
+        var lightSources = new System.Collections.Generic.List<Vector2>();
+        foreach (var col in Physics2D.OverlapBoxAll(roomCenter, roomHalfSize * 2f, 0f))
+        {
+            if (col.CompareTag("LightSource"))
+                lightSources.Add((Vector2)col.transform.position);
+        }
+
+        // Phase 1 uses a larger check radius so the boss lands well inside darkness
+        float checkRadius = IsPhase2 ? 1.0f : 2.0f;
+        // Minimum distance from player — boss shouldn't land right next to them
+        float minPlayerDist = IsPhase2 ? 4f : 6f;
+
+        var darkCandidates    = new System.Collections.Generic.List<Vector2>();
+        Vector2 bestFallbackPos   = roomCenter;
+        float   bestFallbackScore = -1f;
+
+        const int attempts = 30;
+        for (int i = 0; i < attempts; i++)
         {
             Vector2 candidate = new Vector2(
                 Random.Range(roomCenter.x - roomHalfSize.x * 0.8f,
@@ -915,24 +942,38 @@ public class VesperAI : MonoBehaviour
                 Random.Range(roomCenter.y - roomHalfSize.y * 0.8f,
                              roomCenter.y + roomHalfSize.y * 0.8f));
 
-            // Skip positions that are currently inside a LightSource collider
+            float distToPlayer = Vector2.Distance(candidate, playerPos);
+            if (distToPlayer < minPlayerDist) continue;
+
             bool inLight = false;
-            var hits = Physics2D.OverlapCircleAll(candidate, 0.3f);
+            var hits = Physics2D.OverlapCircleAll(candidate, checkRadius);
             foreach (var h in hits)
             {
                 if (h.CompareTag("LightSource")) { inLight = true; break; }
             }
-            if (inLight) continue;
 
-            float dist = Vector2.Distance(candidate, playerPos);
-            if (dist > bestDist)
+            if (!inLight)
             {
-                bestDist = dist;
-                bestPos  = candidate;
+                darkCandidates.Add(candidate);
+            }
+            else
+            {
+                // Fallback: farthest from nearest light source
+                float minLightDist = float.MaxValue;
+                foreach (var ls in lightSources)
+                    minLightDist = Mathf.Min(minLightDist, Vector2.Distance(candidate, ls));
+                if (minLightDist > bestFallbackScore)
+                {
+                    bestFallbackScore = minLightDist;
+                    bestFallbackPos   = candidate;
+                }
             }
         }
 
-        return bestPos;
+        // Pick randomly from valid dark spots; fall back to least-lit if none found
+        if (darkCandidates.Count > 0)
+            return darkCandidates[Random.Range(0, darkCandidates.Count)];
+        return bestFallbackPos;
     }
 
     /// <summary>
