@@ -189,6 +189,7 @@ public class PauseMenu : MonoBehaviour
 
     void GoToMainMenu()
     {
+        Debug.Log("Returning to Main Menu...");
         isPaused = false;
         Time.timeScale = 1f;
         SceneManager.LoadScene("MainMenu");

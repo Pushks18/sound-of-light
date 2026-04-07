@@ -83,6 +83,10 @@ public class PlayerHealth : MonoBehaviour
             if (done) return;
         }
 
+        //if dashing don't take damage
+        PlayerMovement pm = GetComponent<PlayerMovement>();
+        if (pm != null && pm.IsDashing) return;
+
         iFrameTimer = iFrameDuration;
         currentHealth -= dmg;
         RunKillAnalytics.Instance?.RecordPlayerDamageTaken(dmg);

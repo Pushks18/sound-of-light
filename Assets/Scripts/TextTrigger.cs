@@ -1,13 +1,10 @@
-using System.Collections;
-using TMPro;
 using UnityEngine;
 
 public class TextTrigger : MonoBehaviour
 {
     public string textMessage;
 
-    [SerializeField] private TextMeshProUGUI textWords;
-    private Coroutine hideRoutine;
+    [SerializeField] private TextCanvas textCanvas;
     private bool hasTriggered = false;
     private Collider2D triggerCollider;
 
@@ -15,56 +12,25 @@ public class TextTrigger : MonoBehaviour
     {
         triggerCollider = GetComponent<Collider2D>();
 
-        if (textWords == null)
+        if (textCanvas == null)
         {
-            Debug.LogError("textWords is NOT assigned in Inspector!");
-            return;
+            Debug.LogError("TextCanvas is not assigned in Inspector.");
         }
-
-        textWords.gameObject.SetActive(false);
     }
 
     private void OnTriggerEnter2D(Collider2D other)
     {
-        if (hasTriggered)
-        {
-            return;
-        }
-        if (!other.CompareTag("Player"))
-        {
-            return;
-        }
-        if (textWords == null)
-        {
-            return;
-        }
+        if (hasTriggered) return;
+        if (!other.CompareTag("Player")) return;
 
         hasTriggered = true;
 
         if (triggerCollider != null)
             triggerCollider.enabled = false;
 
-        textWords.text = textMessage;
-        textWords.gameObject.SetActive(true);
-        textWords.enabled = true;
-
-        Color c = textWords.color;
-        c.a = 1f;
-        textWords.color = c;
-
-        if (hideRoutine != null)
-            StopCoroutine(hideRoutine);
-
-        hideRoutine = StartCoroutine(HideAfterDelay());
-    }
-
-    private IEnumerator HideAfterDelay()
-    {
-        yield return new WaitForSeconds(5f);
-
-        if (textWords != null)
+        if (textCanvas != null)
         {
-            textWords.gameObject.SetActive(false);
+            textCanvas.ShowTriggerText(textMessage, 5f);
         }
     }
 }

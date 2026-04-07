@@ -5,8 +5,8 @@ public class StatusHUD : MonoBehaviour
 {
     public static StatusHUD Instance { get; private set; }
 
-    private int currentHP = 5;
-    private int maxHP = 5;
+    private int currentHP;
+    private int maxHP;
     private int enemiesLeft = 0;
 
     [Header("HUD Labels (assign in Inspector, or leave blank to auto-find by name)")]
@@ -26,6 +26,9 @@ public class StatusHUD : MonoBehaviour
 
     void Start()
     {
+        var hp = GetComponent<PlayerHealth>();
+        maxHP = hp.maxHealth;
+        currentHP = maxHP;
         BindHUD();
         RefreshHP();
         RefreshEnemy();

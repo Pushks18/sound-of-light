@@ -20,6 +20,8 @@ public class PlayerSlash : MonoBehaviour
     private PlayerMovement playerMovement;
     private float cooldownTimer;
 
+    [SerializeField] private bool disableSlashOnLevel;
+
     // Cached shared resources to avoid per-use Shader.Find and Texture2D allocations
     private static Material cachedSpriteMat;
     private static Sprite   cachedCircleSprite;
@@ -41,7 +43,7 @@ public class PlayerSlash : MonoBehaviour
             if (done) return;
         }
 
-        if (Input.GetKeyDown(KeyCode.J) && cooldownTimer <= 0f)
+        if (Input.GetKeyDown(KeyCode.J) && cooldownTimer <= 0f && !disableSlashOnLevel)
         {
             PerformSlash();
             cooldownTimer = cooldown;
