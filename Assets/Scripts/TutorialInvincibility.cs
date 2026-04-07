@@ -2,9 +2,8 @@ using UnityEngine;
 
 /// <summary>
 /// Attach to the Player in the tutorial scene.
-/// Resets health every frame so the player can never die.
-/// They still flash red when hit (feedback) but health never reaches 0.
-/// TutorialLayoutGenerator adds this automatically on Start.
+/// Health can drop from damage but never below 1 — the player feels
+/// danger but cannot die. TutorialLayoutGenerator adds this automatically.
 /// </summary>
 [RequireComponent(typeof(PlayerHealth))]
 public class TutorialInvincibility : MonoBehaviour
@@ -18,7 +17,7 @@ public class TutorialInvincibility : MonoBehaviour
 
     void LateUpdate()
     {
-        if (hp != null && hp.currentHealth < hp.maxHealth)
-            hp.currentHealth = hp.maxHealth;
+        if (hp != null && hp.currentHealth < 1)
+            hp.currentHealth = 1;
     }
 }

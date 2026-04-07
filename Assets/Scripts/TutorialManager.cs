@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.Rendering.Universal;
+using UnityEngine.UI;
 using TMPro;
 using UnityEngine.SceneManagement;
 using System.Collections;
@@ -28,6 +29,7 @@ public class TutorialManager : MonoBehaviour
     private bool playerFlashed    = false;
 
     private PlayerMovement playerMovement;
+    private GameObject bgPanel;   // dark backdrop behind tutorial text
 
     // ─────────────────────────────────────────────────────────────────────────
     void Awake()
@@ -56,7 +58,44 @@ public class TutorialManager : MonoBehaviour
             playerMovement.OnDashStart += HandleDash;
         }
 
+        SetupTextStyle();
         StartCoroutine(Room0_Intro());
+    }
+
+    void SetupTextStyle()
+    {
+        if (tutorialText == null) return;
+
+        // ── Make text larger and bolder ──
+        tutorialText.fontSize = 48;
+        tutorialText.fontStyle = FontStyles.Bold;
+        tutorialText.enableWordWrapping = true;
+        tutorialText.alignment = TextAlignmentOptions.Center;
+
+        // ── Widen the rect so longer lines don't clip ──
+        var rt = tutorialText.GetComponent<RectTransform>();
+        if (rt != null)
+            rt.sizeDelta = new Vector2(800, 200);
+
+        // ── Dark semi-transparent backdrop behind the text ──
+        bgPanel = new GameObject("TutorialBG");
+        bgPanel.transform.SetParent(tutorialText.transform.parent, false);
+        // Put it behind the text in sibling order
+        bgPanel.transform.SetSiblingIndex(tutorialText.transform.GetSiblingIndex());
+
+        var bgRT = bgPanel.AddComponent<RectTransform>();
+        // Copy anchoring from the text
+        bgRT.anchorMin = rt.anchorMin;
+        bgRT.anchorMax = rt.anchorMax;
+        bgRT.pivot     = rt.pivot;
+        bgRT.anchoredPosition = rt.anchoredPosition;
+        bgRT.sizeDelta = rt.sizeDelta + new Vector2(60, 40);  // padding around text
+
+        var img = bgPanel.AddComponent<Image>();
+        img.color = new Color(0f, 0f, 0f, 0.7f);
+        img.raycastTarget = false;
+
+        bgPanel.SetActive(false);
     }
 
     void Update()
@@ -117,9 +156,7 @@ public class TutorialManager : MonoBehaviour
         Hide();
         yield return new WaitForSeconds(0.5f);
 
-        // Restore lighting before next room
-        yield return StartCoroutine(FadeGlobalLight(LIGHT_DIM, LIGHT_BRIGHT, 1f));
-
+        // Stay dark from here on — the real game is dark
         yield return new WaitUntil(() => currentRoom >= 2);
         yield return StartCoroutine(Room2_Shoot());
     }
@@ -192,12 +229,14 @@ public class TutorialManager : MonoBehaviour
         if (tutorialText == null) return;
         tutorialText.text = msg;
         tutorialText.gameObject.SetActive(true);
+        if (bgPanel != null) bgPanel.SetActive(true);
     }
 
     void Hide()
     {
         if (tutorialText == null) return;
         tutorialText.gameObject.SetActive(false);
+        if (bgPanel != null) bgPanel.SetActive(false);
     }
 
     void HandleEnemyKilled() => enemiesKilled++;

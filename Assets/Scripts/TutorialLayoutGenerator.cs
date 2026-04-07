@@ -5,17 +5,16 @@ using System.Collections.Generic;
 
 /// <summary>
 /// Drop this on a new empty GameObject in NewTut scene.
-/// Wire up roomBuilder (the Grid's TilemapRoomBuilder), enemyPrefab, and trapPrefab.
-/// On Play it carves the exact tutorial layout, places all lights, enemies, and traps,
-/// and creates the room-entry triggers for TutorialManager automatically.
+/// Wire up roomBuilder (the Grid's TilemapRoomBuilder).
+/// Enemies and traps are pre-placed in the scene — drag them in the editor.
+/// On Play it carves the tutorial layout, places lights, auto-detects enemies
+/// by room, arms scene traps, and creates room-entry triggers for TutorialManager.
 /// </summary>
 public class TutorialLayoutGenerator : MonoBehaviour
 {
     // ── References ────────────────────────────────────────────────────────
     [Header("Required References")]
     public TilemapRoomBuilder roomBuilder;
-    public GameObject enemyPrefab;
-    public GameObject trapPrefab;
 
     // ── Light tweaks ──────────────────────────────────────────────────────
     [Header("Light Appearance  (matches idle auto-flash style)")]
@@ -58,22 +57,6 @@ public class TutorialLayoutGenerator : MonoBehaviour
     static readonly (int x, int y, int w, int h) Corr23 = (57, 18,  4,  8); // Room2 ↑ Room3
     static readonly (int x, int y, int w, int h) Corr34 = (28, 35, 22,  4); // Room3 ← Room4
 
-    // Fixed enemy tile positions
-    static readonly Vector2Int E_Dark1  = new Vector2Int(34, 20);  // Room1 top  (attacks front)
-    static readonly Vector2Int E_Dark2  = new Vector2Int(34,  4);  // Room1 bot  (attacks behind)
-    static readonly Vector2Int E_Shoot1 = new Vector2Int(48, 11);  // Room2
-    static readonly Vector2Int E_Shoot2 = new Vector2Int(54,  7);  // Room2
-    static readonly Vector2Int E_Shoot3 = new Vector2Int(61, 14);  // Room2
-    static readonly Vector2Int E_Trap   = new Vector2Int(55, 28);  // Room3 entrance
-    static readonly Vector2Int E_Final  = new Vector2Int(10, 44);  // Room4 far end
-
-    // Trap row across Room3 — player must dash past these
-    static readonly Vector2Int[] TrapRow =
-    {
-        new Vector2Int(52, 32), new Vector2Int(55, 32), new Vector2Int(58, 32),
-        new Vector2Int(61, 32), new Vector2Int(64, 32), new Vector2Int(67, 32),
-    };
-
     // Player spawn
     static readonly Vector2Int PlayerSpawn = new Vector2Int(13, 10);
 
@@ -101,31 +84,29 @@ public class TutorialLayoutGenerator : MonoBehaviour
         ScatterLights(Room4, room4Lights);
         // Room1 stays DARK — TutorialManager dims global light on entry
 
-        // 4 ── Spawn enemies
-        //   Room1: activated naturally by player's L-flash (normal EnemyAI)
-        SpawnEnemy(E_Dark1);
-        SpawnEnemy(E_Dark2);
+        // 4 ── Wire up pre-placed scene enemies (placed in editor, detected by room)
+        var room2Enemies = new List<EnemyAI>();
+        var room3Enemies = new List<EnemyAI>();
 
-        //   Room2: immediately ambush — need EnemyActivator
-        var s1 = SpawnEnemy(E_Shoot1);
-        var s2 = SpawnEnemy(E_Shoot2);
-        var s3 = SpawnEnemy(E_Shoot3);
-        CreateActivator(Corr12, EnemiesOf(s1, s2, s3));
-
-        //   Room3: one enemy at entrance, activates immediately
-        var te = SpawnEnemy(E_Trap);
-        CreateActivator(Corr23, EnemiesOf(te));
-
-        //   Room4: one enemy, dormant (activates on flash — final test)
-        SpawnEnemy(E_Final);
-
-        // 5 ── Spawn traps (armed from start so player can see them)
-        foreach (var cell in TrapRow)
+        foreach (var ai in FindObjectsByType<EnemyAI>(FindObjectsSortMode.None))
         {
-            var trapGO = Instantiate(trapPrefab, W(cell), Quaternion.identity);
-            var trap = trapGO.GetComponent<Trap>();
-            if (trap != null) trap.startArmed = true;
-            SpawnTrapLight(trapGO);
+            Vector2Int cell = roomBuilder.WorldToCell(ai.transform.position);
+            if (InRect(cell, Room2))       room2Enemies.Add(ai);
+            else if (InRect(cell, Room3))  room3Enemies.Add(ai);
+            // Room1 & Room4 enemies activate naturally via flash — no activator needed
+        }
+
+        if (room2Enemies.Count > 0)
+            CreateActivator(Corr12, room2Enemies.ToArray());
+        if (room3Enemies.Count > 0)
+            CreateActivator(Corr23, room3Enemies.ToArray());
+
+        // 5 ── Arm pre-placed scene traps (placed in the editor, not spawned here)
+        var sceneTraps = FindObjectsByType<Trap>(FindObjectsSortMode.None);
+        foreach (var trap in sceneTraps)
+        {
+            trap.startArmed = true;
+            SpawnTrapLight(trap.gameObject);
         }
 
         // 6 ── Create room-entry triggers for TutorialManager
@@ -207,22 +188,6 @@ public class TutorialLayoutGenerator : MonoBehaviour
         pulse.phase        = Random.Range(0f, Mathf.PI * 2f);
     }
 
-    // ── Enemy spawning ────────────────────────────────────────────────────
-    GameObject SpawnEnemy(Vector2Int cell)
-    {
-        if (enemyPrefab == null) return null;
-        return Instantiate(enemyPrefab, W(cell), Quaternion.identity);
-    }
-
-    EnemyAI[] EnemiesOf(params GameObject[] gos)
-    {
-        var list = new List<EnemyAI>();
-        foreach (var go in gos)
-            if (go != null && go.TryGetComponent<EnemyAI>(out var ai))
-                list.Add(ai);
-        return list.ToArray();
-    }
-
     // ── Enemy activator trigger ───────────────────────────────────────────
     void CreateActivator((int x, int y, int w, int h) corrRect, EnemyAI[] enemies)
     {
@@ -297,6 +262,10 @@ public class TutorialLayoutGenerator : MonoBehaviour
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────
+    // Is a cell inside a room rect?
+    bool InRect(Vector2Int cell, (int x, int y, int w, int h) r)
+        => cell.x >= r.x && cell.x < r.x + r.w && cell.y >= r.y && cell.y < r.y + r.h;
+
     // Tilemap cell → world position
     Vector3 W(Vector2Int cell) => roomBuilder.CellToWorld(cell);
 
