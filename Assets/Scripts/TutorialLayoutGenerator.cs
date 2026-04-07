@@ -125,6 +125,7 @@ public class TutorialLayoutGenerator : MonoBehaviour
             var trapGO = Instantiate(trapPrefab, W(cell), Quaternion.identity);
             var trap = trapGO.GetComponent<Trap>();
             if (trap != null) trap.startArmed = true;
+            SpawnTrapLight(trapGO);
         }
 
         // 6 ── Create room-entry triggers for TutorialManager
@@ -275,6 +276,24 @@ public class TutorialLayoutGenerator : MonoBehaviour
 
             cam.transform.position = new Vector3(spawnPos.x, spawnPos.y, -10f);
         }
+    }
+
+    // ── Trap light ────────────────────────────────────────────────────────
+    void SpawnTrapLight(GameObject trapGO)
+    {
+        var lightObj = new GameObject("TrapRevealLight");
+        lightObj.transform.SetParent(trapGO.transform);
+        lightObj.transform.localPosition = Vector3.zero;
+
+        var l = lightObj.AddComponent<Light2D>();
+        l.lightType             = Light2D.LightType.Point;
+        l.color                 = new Color(1f, 0.45f, 0.1f);  // orange
+        l.intensity             = 1.4f;
+        l.pointLightOuterRadius = 2.2f;
+        l.pointLightInnerRadius = 0.5f;
+        l.pointLightOuterAngle  = 360f;
+        l.pointLightInnerAngle  = 360f;
+        l.shadowsEnabled        = false;
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────
