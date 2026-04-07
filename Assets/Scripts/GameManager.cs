@@ -36,8 +36,8 @@ public class GameManager : MonoBehaviour
 
         Instance = this;
 
-        // Count enemies immediately
-        enemyCount = GameObject.FindGameObjectsWithTag("Enemy").Length;
+        // Count enemies immediately; boss fights count as 1 enemy (the boss itself)
+        enemyCount = isBossFight ? 1 : GameObject.FindGameObjectsWithTag("Enemy").Length;
 
         // We delay UI update to next frame to ensure GameUIManager exists
         StartCoroutine(InitializeUI());
@@ -59,6 +59,20 @@ public class GameManager : MonoBehaviour
         yield return null; // wait one frame
         GameUIManager.Instance?.UpdateEnemyCount(enemyCount);
         StatusHUD.Instance?.UpdateEnemies();
+
+        // In a boss scene reached from endless mode, sync the room counter
+        // to the room number stored before the scene transition.
+        if (isBossFight && DungeonManager.RoomIndexBeforeBoss > 0)
+        {
+            if (RoomCounterHUD.Instance == null)
+            {
+                var player = GameObject.FindGameObjectWithTag("Player");
+                if (player != null)
+                    player.AddComponent<RoomCounterHUD>();
+                yield return null; // let Awake run
+            }
+            RoomCounterHUD.Instance?.UpdateRoom(DungeonManager.RoomIndexBeforeBoss);
+        }
     }
 
     void Update()

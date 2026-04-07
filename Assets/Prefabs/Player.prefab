@@ -255,6 +255,8 @@ MonoBehaviour:
   pipOffset: 0.45
   pipRadius: 0.25
   pipIntensity: 0.15
+  shieldUp: 0
+  shieldTime: 0.5
 --- !u!114 &5265495555186587309
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -272,6 +274,8 @@ MonoBehaviour:
   flashDuration: 0.08
   flashColor: {r: 1, g: 0, b: 0, a: 1}
   iFrameDuration: 0.5
+  contactDamage: 0
+  knockbackForce: 15
 --- !u!61 &6385511620971046708
 BoxCollider2D:
   m_ObjectHideFlags: 0
@@ -366,6 +370,7 @@ MonoBehaviour:
   lightColor: {r: 1, g: 0.9, b: 0.6, a: 1}
   arcColor: {r: 1, g: 0.9, b: 0.4, a: 0.5}
   arcEdgeColor: {r: 1, g: 1, b: 0.8, a: 0.8}
+  disableSlashOnLevel: 0
 --- !u!114 &5193125851078355678
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -404,7 +409,6 @@ MonoBehaviour:
   waveIntensity: 2.5
   waveDuration: 5
   energyCost: 10
-  cooldown: 5
   waveColor: {r: 1, g: 0.95, b: 0.8, a: 1}
   idleFlashDelay: 4
   idleFlashRadiusMult: 0.6
@@ -439,6 +443,12 @@ MonoBehaviour:
   maxBullets: 15
   maxDashes: 5
   maxFlashes: 5
+  bulletLabel: {fileID: 0}
+  dashLabel: {fileID: 0}
+  flashLabel: {fileID: 0}
+  bulletCooldown: 0.3
+  dashCooldown: 1
+  flashCooldown: 4
   bulletRegenDelay: 5
   bulletRegenInterval: 0.5
   dashRegenDelay: 8
@@ -457,6 +467,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 523851f5625c64260b33c456d95234ea, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::StatusHUD
+  hpLabel: {fileID: 0}
+  enemyLabel: {fileID: 0}
 --- !u!1 &6889415336029178827
 GameObject:
   m_ObjectHideFlags: 0

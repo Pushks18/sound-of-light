@@ -1558,7 +1558,7 @@ MonoBehaviour:
   bulletLabel: {fileID: 0}
   dashLabel: {fileID: 0}
   flashLabel: {fileID: 0}
-  bulletCooldown: 0.5
+  bulletCooldown: 0.3
   dashCooldown: 1
   flashCooldown: 4
   bulletRegenDelay: 5
