@@ -24,9 +24,9 @@ public class PlayerAmmo : MonoBehaviour
     private static readonly Color ColKey = new Color(1f, 0.85f, 0.2f, 1f);
 
     [Header("Ability Cooldowns")]
-    public float bulletCooldown = 1.0f;
+    public float bulletCooldown = 0.5f;
     public float dashCooldown = 1.0f;
-    public float flashCooldown = 20.0f;
+    public float flashCooldown = 4.0f;
 
     [Header("Bullet Regen")]
     public float bulletRegenDelay = 5f;

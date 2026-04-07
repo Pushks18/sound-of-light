@@ -37,7 +37,7 @@ public class MainMenuController : MonoBehaviour
 
     public void LoadEndless()
     {
-        SceneManager.LoadScene("RoomGenScene");
+        SceneManager.LoadScene("ProgressiveRoomGen");
     }
 
     public void LoadRoomGen()

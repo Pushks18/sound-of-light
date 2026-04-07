@@ -3043,7 +3043,7 @@ MonoBehaviour:
       m_Calls:
       - m_Target: {fileID: 715055724}
         m_TargetAssemblyTypeName: MainMenuController, Assembly-CSharp
-        m_MethodName: LoadGame
+        m_MethodName: LoadEndless
         m_Mode: 1
         m_Arguments:
           m_ObjectArgument: {fileID: 0}
@@ -3446,7 +3446,7 @@ MonoBehaviour:
       m_Calls:
       - m_Target: {fileID: 715055724}
         m_TargetAssemblyTypeName: MainMenuController, Assembly-CSharp
-        m_MethodName: LoadGame
+        m_MethodName: LoadRoomGen
         m_Mode: 1
         m_Arguments:
           m_ObjectArgument: {fileID: 0}

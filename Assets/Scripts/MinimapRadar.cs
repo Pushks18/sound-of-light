@@ -10,9 +10,9 @@ public class MinimapRadar : MonoBehaviour
 {
     [Header("Radar Settings")]
     public float worldRadius = 30f;       // how far (world units) the radar can see
-    public float radarSize = 160f;         // UI diameter in pixels
-    public float dotSize = 10f;
-    public float playerDotSize = 8f;
+    public float radarSize = 220f;         // UI diameter in pixels
+    public float dotSize = 12f;
+    public float playerDotSize = 10f;
 
     [Header("Colors")]
     public Color bgColor = new Color(0f, 0f, 0f, 0.25f);
