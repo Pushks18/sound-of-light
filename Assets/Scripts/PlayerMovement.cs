@@ -1,6 +1,7 @@
 using UnityEngine;
 using UnityEngine.Rendering.Universal;
 using System;
+using System.Collections;
 
 public class PlayerMovement : MonoBehaviour
 {
@@ -36,6 +37,9 @@ public class PlayerMovement : MonoBehaviour
     /// <summary>Last non-zero movement direction (8-way, normalized).</summary>
     public Vector2 AimDirection => aimDirection;
     public bool IsDashing => dashTimer > 0f;
+
+    public bool shieldUp;
+    [SerializeField] private float shieldTime = 0.5f;
     public Vector2 DashDirection => dashDirection;
     public event Action OnDashStart;
 
@@ -136,7 +140,16 @@ public class PlayerMovement : MonoBehaviour
             Physics2D.IgnoreLayerCollision(playerLayer, enemyLayer, true);
 
             OnDashStart?.Invoke();
+
+            shieldUp = true;
+            StartCoroutine(SetShieldUp());
         }
+    }
+
+    IEnumerator SetShieldUp()
+    {
+        yield return new WaitForSeconds(shieldTime);
+        shieldUp = false;
     }
 
     void OnDisable()
