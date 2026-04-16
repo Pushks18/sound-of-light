@@ -122,25 +122,43 @@ public class EnemyHealth : MonoBehaviour
         if (ai != null) ai.enabled = false;
         var shooting = GetComponent<EnemyShooting>();
         if (shooting != null) shooting.enabled = false;
+        var skitter = GetComponent<SkitterAI>();
+        if (skitter != null) skitter.DisableForDeath();
         var col = GetComponent<Collider2D>();
         if (col != null) col.enabled = false;
         var rb = GetComponent<Rigidbody2D>();
         if (rb != null) rb.linearVelocity = Vector2.zero;
 
         float duration = 0.3f;
-        float elapsed = 0f;
-        Color startColor = sr != null ? sr.color : Color.white;
 
-        while (elapsed < duration)
+        if (skitter != null)
         {
-            elapsed += Time.unscaledDeltaTime;
-            if (sr != null)
+            yield return skitter.FadeOut(duration);
+        }
+        else
+        {
+            float elapsed = 0f;
+            Color startColor = sr != null ? sr.color : Color.white;
+            MeshRenderer mr = sr == null ? GetComponent<MeshRenderer>() : null;
+            if (mr != null) startColor = mr.material.color;
+
+            while (elapsed < duration)
             {
-                var c = startColor;
-                c.a = Mathf.Lerp(startColor.a, 0f, elapsed / duration);
-                sr.color = c;
+                elapsed += Time.unscaledDeltaTime;
+                if (sr != null)
+                {
+                    var c = startColor;
+                    c.a = Mathf.Lerp(startColor.a, 0f, elapsed / duration);
+                    sr.color = c;
+                }
+                else if (mr != null)
+                {
+                    var c = startColor;
+                    c.a = Mathf.Lerp(startColor.a, 0f, elapsed / duration);
+                    mr.material.color = c;
+                }
+                yield return null;
             }
-            yield return null;
         }
 
         Destroy(gameObject);
