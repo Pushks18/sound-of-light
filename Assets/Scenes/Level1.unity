@@ -418,11 +418,18 @@ MonoBehaviour:
   trapKillsEntry: entry.141215274
   dashKillsEntry: entry.705370448
   unknownKillsEntry: entry.429632131
+  highestLevelReachedEntry: entry.1164402421
+  deathLevelEntry: entry.490526072
   ttkSessionIdEntry: entry.1445909754
   ttkEnemyNameEntry: entry.679796372
   ttkSecondsEntry: entry.588633834
   ttkKillMethodEntry: entry.2135333005
   ttkDamageTypesEntry: entry.556402948
+  roomClearSessionIdEntry: entry.693650357
+  roomClearLevelEntry: entry.588434780
+  roomClearSecondsEntry: entry.485085220
+  roomClearIsBossEntry: entry.186545810
+  roomClearResultEntry: entry.1676784979
   interactionSessionIdEntry: entry.1288133725
   interactionIndexEntry: entry.1218770745
   interactionDamageTakenEntry: entry.1618313918

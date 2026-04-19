@@ -40,55 +40,53 @@ public class LevelExit : MonoBehaviour
 
     public void LoadLevel1()
     {
-        LevelExit.curLevel = 1; 
-        SceneManager.LoadScene("Level1");
+        LoadLevel(1, "Level1");
     }
 
     public void LoadLevel2()
     {
-        LevelExit.curLevel = 2; 
-        SceneManager.LoadScene("Level2");
+        LoadLevel(2, "Level2");
     }
 
     public void LoadLevel3()
     {
-        LevelExit.curLevel = 3; 
-        SceneManager.LoadScene("Level3");
+        LoadLevel(3, "Level3");
     }
 
     public void LoadLevel4()
     {
-        LevelExit.curLevel = 4; 
-        SceneManager.LoadScene("Level4");
+        LoadLevel(4, "Level4");
     }
 
     public void LoadLevel5()
     {
-        LevelExit.curLevel = 5; 
-        SceneManager.LoadScene("Level5");
+        LoadLevel(5, "Level5");
     }
 
     public void LoadLevel6()
     {
-        LevelExit.curLevel = 6; 
-        SceneManager.LoadScene("Level6");
+        LoadLevel(6, "Level6");
     }
 
     public void LoadLevel7()
     {
-        LevelExit.curLevel = 7; 
-        SceneManager.LoadScene("Level7");
+        LoadLevel(7, "Level7");
     }
 
     public void LoadLevel8()
     {
-        LevelExit.curLevel = 8; 
-        SceneManager.LoadScene("Level8");
+        LoadLevel(8, "Level8");
     }
 
     public void LoadLevel9()
     {
-        LevelExit.curLevel = 9; 
-        SceneManager.LoadScene("Level9");
+        LoadLevel(9, "Level9");
+    }
+
+    private void LoadLevel(int nextLevel, string sceneName)
+    {
+        RunKillAnalytics.Instance?.RecordCurrentLevelCleared();
+        LevelExit.curLevel = nextLevel;
+        SceneManager.LoadScene(sceneName);
     }
 }

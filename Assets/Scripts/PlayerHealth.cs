@@ -150,7 +150,10 @@ public class PlayerHealth : MonoBehaviour
         if (sr != null) sr.color = originalColor;
         isFlashing = false;
 
-        GameManager.Instance?.PlayerDied();
+        if (GameManager.Instance != null)
+            GameManager.Instance.PlayerDied();
+        else
+            RunKillAnalytics.Instance?.SendRunSummary("death");
 
         var deathScreen = FindAnyObjectByType<DeathScreen>();
         if (deathScreen == null)

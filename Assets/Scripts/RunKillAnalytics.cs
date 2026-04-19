@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
 public class RunKillAnalytics : MonoBehaviour
 {
@@ -23,6 +24,10 @@ public class RunKillAnalytics : MonoBehaviour
     private int currentInteractionDamage;
     private int interactionCount;
     private const float InteractionTimeoutSeconds = 5f;
+    private int currentLevelIndex;
+    private int highestLevelReached;
+    private float currentLevelStartTime;
+    private bool hasSentCurrentLevelClear;
 
     public long SessionID => sessionID;
 
@@ -30,11 +35,12 @@ public class RunKillAnalytics : MonoBehaviour
     {
         if (Instance != null && Instance != this)
         {
-            Destroy(this);
+            Destroy(gameObject);
             return;
         }
 
         Instance = this;
+        DontDestroyOnLoad(gameObject);
         sessionID = DateTime.Now.Ticks;
         sendToGoogle = GetComponent<SendToGoogle>();
         ResetCounts();
@@ -48,6 +54,8 @@ public class RunKillAnalytics : MonoBehaviour
 
     void Update()
     {
+        TrackLevelProgress();
+
         if (!interactionActive)
             return;
 
@@ -115,6 +123,8 @@ public class RunKillAnalytics : MonoBehaviour
 
     public void SendRunSummary(string runOutcome)
     {
+        TrackLevelProgress();
+
         if (interactionActive)
             FinalizeDamageInteraction(runOutcome, Time.time);
 
@@ -132,7 +142,25 @@ public class RunKillAnalytics : MonoBehaviour
             return;
         }
 
-        sendToGoogle.SendRunKillSummary(sessionID, runOutcome, new Dictionary<string, int>(killCounts));
+        if (string.Equals(runOutcome, "win", StringComparison.OrdinalIgnoreCase) && !hasSentCurrentLevelClear)
+            SendCurrentLevelClear("win");
+
+        int deathLevel = string.Equals(runOutcome, "death", StringComparison.OrdinalIgnoreCase)
+            ? GetResolvedLevelIndex()
+            : 0;
+
+        sendToGoogle.SendRunKillSummary(
+            sessionID,
+            runOutcome,
+            new Dictionary<string, int>(killCounts),
+            highestLevelReached,
+            deathLevel);
+    }
+
+    public void RecordCurrentLevelCleared(string clearResult = "cleared")
+    {
+        TrackLevelProgress();
+        SendCurrentLevelClear(clearResult);
     }
 
     public int GetKillCount(string damageMethod)
@@ -187,6 +215,93 @@ public class RunKillAnalytics : MonoBehaviour
         currentInteractionDamage = 0;
         interactionStartTime = 0f;
         lastPlayerDamageTime = 0f;
+    }
+
+    void TrackLevelProgress()
+    {
+        int resolvedLevelIndex = GetResolvedLevelIndex();
+        if (resolvedLevelIndex <= 0)
+            return;
+
+        if (resolvedLevelIndex != currentLevelIndex)
+        {
+            currentLevelIndex = resolvedLevelIndex;
+            highestLevelReached = Mathf.Max(highestLevelReached, currentLevelIndex);
+            currentLevelStartTime = Time.time;
+            hasSentCurrentLevelClear = false;
+        }
+
+        if (hasSentCurrentLevelClear)
+            return;
+
+        GameManager gameManager = GameManager.Instance;
+        if (gameManager == null || gameManager.gameEnded || gameManager.enemyCount > 0)
+            return;
+
+        SendCurrentLevelClear("cleared");
+    }
+
+    void SendCurrentLevelClear(string clearResult)
+    {
+        if (currentLevelIndex <= 0 || hasSentCurrentLevelClear)
+            return;
+
+        if (sendToGoogle == null)
+            sendToGoogle = GetComponent<SendToGoogle>() ?? FindAnyObjectByType<SendToGoogle>();
+
+        if (sendToGoogle == null)
+        {
+            Debug.LogWarning("RunKillAnalytics could not find SendToGoogle. Room clear event was not sent.");
+            return;
+        }
+
+        float clearDurationSeconds = Mathf.Max(0f, Time.time - currentLevelStartTime);
+        bool isBossLevel = GameManager.Instance != null && GameManager.Instance.isBossFight;
+
+        sendToGoogle.SendRoomClear(
+            sessionID,
+            currentLevelIndex,
+            clearDurationSeconds,
+            isBossLevel,
+            clearResult);
+
+        hasSentCurrentLevelClear = true;
+    }
+
+    int GetResolvedLevelIndex()
+    {
+        if (DungeonManager.Instance != null)
+            return DungeonManager.Instance.CurrentRoomIndex;
+
+        int sceneLevelIndex = TryGetSceneLevelIndex();
+        if (sceneLevelIndex > 0)
+            return sceneLevelIndex;
+
+        if (GameManager.Instance != null)
+        {
+            if (GameManager.Instance.isBossFight && DungeonManager.RoomIndexBeforeBoss > 0)
+                return DungeonManager.RoomIndexBeforeBoss;
+
+            return highestLevelReached > 0 ? highestLevelReached : 1;
+        }
+
+        return 0;
+    }
+
+    int TryGetSceneLevelIndex()
+    {
+        string sceneName = SceneManager.GetActiveScene().name;
+        if (string.IsNullOrWhiteSpace(sceneName))
+            return 0;
+
+        if (sceneName.StartsWith("Level", StringComparison.OrdinalIgnoreCase))
+        {
+            string suffix = sceneName.Substring("Level".Length).Trim();
+            if (int.TryParse(suffix, out int parsedLevelIndex))
+                return parsedLevelIndex;
+        }
+
+        return 0;
     }
 
     string NormalizeMethod(string damageMethod)

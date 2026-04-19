@@ -15,11 +15,18 @@ public class SendToGoogle : MonoBehaviour
     private const string DefaultTrapKillsEntry = "entry.141215274";
     private const string DefaultDashKillsEntry = "entry.705370448";
     private const string DefaultUnknownKillsEntry = "entry.429632131";
+    private const string DefaultHighestLevelReachedEntry = "entry.1164402421";
+    private const string DefaultDeathLevelEntry = "entry.490526072";
     private const string DefaultTtkSessionIdEntry = "entry.1445909754";
     private const string DefaultTtkEnemyNameEntry = "entry.679796372";
     private const string DefaultTtkSecondsEntry = "entry.588633834";
     private const string DefaultTtkKillMethodEntry = "entry.2135333005";
     private const string DefaultTtkDamageTypesEntry = "entry.556402948";
+    private const string DefaultRoomClearSessionIdEntry = "entry.693650357";
+    private const string DefaultRoomClearLevelEntry = "entry.588434780";
+    private const string DefaultRoomClearSecondsEntry = "entry.485085220";
+    private const string DefaultRoomClearIsBossEntry = "entry.186545810";
+    private const string DefaultRoomClearResultEntry = "entry.1676784979";
     private const string DefaultInteractionSessionIdEntry = "entry.1288133725";
     private const string DefaultInteractionIndexEntry = "entry.1218770745";
     private const string DefaultInteractionDamageTakenEntry = "entry.1618313918";
@@ -37,12 +44,20 @@ public class SendToGoogle : MonoBehaviour
     [SerializeField] private string trapKillsEntry = DefaultTrapKillsEntry;
     [SerializeField] private string dashKillsEntry = DefaultDashKillsEntry;
     [SerializeField] private string unknownKillsEntry = DefaultUnknownKillsEntry;
+    [SerializeField] private string highestLevelReachedEntry = DefaultHighestLevelReachedEntry;
+    [SerializeField] private string deathLevelEntry = DefaultDeathLevelEntry;
     [Header("Enemy Time To Kill Entries")]
     [SerializeField] private string ttkSessionIdEntry = DefaultTtkSessionIdEntry;
     [SerializeField] private string ttkEnemyNameEntry = DefaultTtkEnemyNameEntry;
     [SerializeField] private string ttkSecondsEntry = DefaultTtkSecondsEntry;
     [SerializeField] private string ttkKillMethodEntry = DefaultTtkKillMethodEntry;
     [SerializeField] private string ttkDamageTypesEntry = DefaultTtkDamageTypesEntry;
+    [Header("Room Clear Entries")]
+    [SerializeField] private string roomClearSessionIdEntry = DefaultRoomClearSessionIdEntry;
+    [SerializeField] private string roomClearLevelEntry = DefaultRoomClearLevelEntry;
+    [SerializeField] private string roomClearSecondsEntry = DefaultRoomClearSecondsEntry;
+    [SerializeField] private string roomClearIsBossEntry = DefaultRoomClearIsBossEntry;
+    [SerializeField] private string roomClearResultEntry = DefaultRoomClearResultEntry;
     [Header("Damage Interaction Entries")]
     [SerializeField] private string interactionSessionIdEntry = DefaultInteractionSessionIdEntry;
     [SerializeField] private string interactionIndexEntry = DefaultInteractionIndexEntry;
@@ -66,14 +81,18 @@ public class SendToGoogle : MonoBehaviour
 
     public void SendDeathPosition(Vector3 deathPosition)
     {
+        ApplyDefaultAnalyticsConfigIfMissing();
+
         string deathPositionString = $"{deathPosition.x:F3}, {deathPosition.y:F3}, {deathPosition.z:F3}";
         WWWForm form = new WWWForm();
         TryAddField(form, deathPositionEntry, deathPositionString);
         StartCoroutine(PostForm(form, $"Death position uploaded (session {_sessionID}): {deathPositionString}"));
     }
 
-    public void SendRunKillSummary(long sessionID, string runOutcome, Dictionary<string, int> killCounts)
+    public void SendRunKillSummary(long sessionID, string runOutcome, Dictionary<string, int> killCounts, int highestLevelReached, int deathLevel)
     {
+        ApplyDefaultAnalyticsConfigIfMissing();
+
         int totalKills =
             GetKillCount(killCounts, RunKillAnalytics.DamageMethodBullet) +
             GetKillCount(killCounts, RunKillAnalytics.DamageMethodSlash) +
@@ -90,6 +109,8 @@ public class SendToGoogle : MonoBehaviour
         TryAddField(form, trapKillsEntry, GetKillCount(killCounts, RunKillAnalytics.DamageMethodTrap).ToString());
         TryAddField(form, dashKillsEntry, GetKillCount(killCounts, RunKillAnalytics.DamageMethodDash).ToString());
         TryAddField(form, unknownKillsEntry, GetKillCount(killCounts, RunKillAnalytics.DamageMethodUnknown).ToString());
+        TryAddField(form, highestLevelReachedEntry, highestLevelReached.ToString());
+        TryAddField(form, deathLevelEntry, deathLevel > 0 ? deathLevel.ToString() : string.Empty);
 
         string logMessage =
             $"Run kill summary uploaded (session {sessionID}): outcome={runOutcome}, " +
@@ -97,13 +118,16 @@ public class SendToGoogle : MonoBehaviour
             $"slash={GetKillCount(killCounts, RunKillAnalytics.DamageMethodSlash)}, " +
             $"trap={GetKillCount(killCounts, RunKillAnalytics.DamageMethodTrap)}, " +
             $"dash={GetKillCount(killCounts, RunKillAnalytics.DamageMethodDash)}, " +
-            $"unknown={GetKillCount(killCounts, RunKillAnalytics.DamageMethodUnknown)}";
+            $"unknown={GetKillCount(killCounts, RunKillAnalytics.DamageMethodUnknown)}, " +
+            $"highestLevelReached={highestLevelReached}, deathLevel={deathLevel}";
 
         StartCoroutine(PostForm(form, logMessage));
     }
 
     public void SendEnemyTimeToKill(long sessionID, string enemyName, float timeToKillSeconds, string killMethod, string damageTypesUsed)
     {
+        ApplyDefaultAnalyticsConfigIfMissing();
+
         WWWForm form = new WWWForm();
         TryAddField(form, ttkSessionIdEntry, sessionID.ToString());
         TryAddField(form, ttkEnemyNameEntry, enemyName);
@@ -118,8 +142,28 @@ public class SendToGoogle : MonoBehaviour
         StartCoroutine(PostForm(form, logMessage));
     }
 
+    public void SendRoomClear(long sessionID, int roomLevel, float clearSeconds, bool isBossRoom, string clearResult)
+    {
+        ApplyDefaultAnalyticsConfigIfMissing();
+
+        WWWForm form = new WWWForm();
+        TryAddField(form, roomClearSessionIdEntry, sessionID.ToString());
+        TryAddField(form, roomClearLevelEntry, roomLevel.ToString());
+        TryAddField(form, roomClearSecondsEntry, clearSeconds.ToString("F3"));
+        TryAddField(form, roomClearIsBossEntry, isBossRoom ? "true" : "false");
+        TryAddField(form, roomClearResultEntry, clearResult);
+
+        string logMessage =
+            $"Room clear uploaded (session {sessionID}): level={roomLevel}, " +
+            $"clearSeconds={clearSeconds:F3}, isBossRoom={isBossRoom}, clearResult={clearResult}";
+
+        StartCoroutine(PostForm(form, logMessage));
+    }
+
     public void SendDamageInteraction(long sessionID, int interactionIndex, int damageTaken, float durationSeconds, string endReason)
     {
+        ApplyDefaultAnalyticsConfigIfMissing();
+
         WWWForm form = new WWWForm();
         TryAddField(form, interactionSessionIdEntry, sessionID.ToString());
         TryAddField(form, interactionIndexEntry, interactionIndex.ToString());
@@ -188,6 +232,10 @@ public class SendToGoogle : MonoBehaviour
             dashKillsEntry = DefaultDashKillsEntry;
         if (string.IsNullOrWhiteSpace(unknownKillsEntry))
             unknownKillsEntry = DefaultUnknownKillsEntry;
+        if (string.IsNullOrWhiteSpace(highestLevelReachedEntry))
+            highestLevelReachedEntry = DefaultHighestLevelReachedEntry;
+        if (string.IsNullOrWhiteSpace(deathLevelEntry))
+            deathLevelEntry = DefaultDeathLevelEntry;
 
         if (string.IsNullOrWhiteSpace(ttkSessionIdEntry))
             ttkSessionIdEntry = DefaultTtkSessionIdEntry;
@@ -199,6 +247,16 @@ public class SendToGoogle : MonoBehaviour
             ttkKillMethodEntry = DefaultTtkKillMethodEntry;
         if (string.IsNullOrWhiteSpace(ttkDamageTypesEntry))
             ttkDamageTypesEntry = DefaultTtkDamageTypesEntry;
+        if (string.IsNullOrWhiteSpace(roomClearSessionIdEntry))
+            roomClearSessionIdEntry = DefaultRoomClearSessionIdEntry;
+        if (string.IsNullOrWhiteSpace(roomClearLevelEntry))
+            roomClearLevelEntry = DefaultRoomClearLevelEntry;
+        if (string.IsNullOrWhiteSpace(roomClearSecondsEntry))
+            roomClearSecondsEntry = DefaultRoomClearSecondsEntry;
+        if (string.IsNullOrWhiteSpace(roomClearIsBossEntry))
+            roomClearIsBossEntry = DefaultRoomClearIsBossEntry;
+        if (string.IsNullOrWhiteSpace(roomClearResultEntry))
+            roomClearResultEntry = DefaultRoomClearResultEntry;
 
         if (string.IsNullOrWhiteSpace(interactionSessionIdEntry))
             interactionSessionIdEntry = DefaultInteractionSessionIdEntry;

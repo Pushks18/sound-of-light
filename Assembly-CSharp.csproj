@@ -55,7 +55,6 @@
     <UnityVersion>6000.3.8f1</UnityVersion>
   </PropertyGroup>
   <ItemGroup>
-    <Analyzer Include="C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\Extensions\Microsoft\Visual Studio Tools for Unity\Analyzers\Microsoft.Unity.Analyzers.dll" />
     <Analyzer Include="C:\Program Files\Unity\Hub\Editor\6000.3.8f1\Editor\Data\Tools\BuildPipeline\Unity.SourceGenerators\Unity.SourceGenerators.dll" />
     <Analyzer Include="C:\Program Files\Unity\Hub\Editor\6000.3.8f1\Editor\Data\Tools\BuildPipeline\Unity.SourceGenerators\Unity.Properties.SourceGenerator.dll" />
     <Analyzer Include="C:\Program Files\Unity\Hub\Editor\6000.3.8f1\Editor\Data\Tools\BuildPipeline\Unity.SourceGenerators\Unity.UIToolkit.SourceGenerator.dll" />
@@ -73,10 +72,12 @@
     <Compile Include="Assets\TextMesh Pro\Examples &amp; Extras\Scripts\TMP_TextSelector_A.cs" />
     <Compile Include="Assets\Scripts\Procedural\GridPathfinder.cs" />
     <Compile Include="Assets\Scripts\PlayerAmbientLight.cs" />
+    <Compile Include="Assets\Scripts\ShadowBossAI.cs" />
     <Compile Include="Assets\Scripts\PlayerAmmo.cs" />
     <Compile Include="Assets\Scripts\TutorialInvincibility.cs" />
     <Compile Include="Assets\Scripts\MinimapRadar.cs" />
     <Compile Include="Assets\Scripts\Procedural\BSPRoomGenerator.cs" />
+    <Compile Include="Assets\Scripts\SkitterAI.cs" />
     <Compile Include="Assets\Scripts\EnemyHealthBar.cs" />
     <Compile Include="Assets\Scripts\DamageNumber.cs" />
     <Compile Include="Assets\Scripts\VesperAI.cs" />
@@ -91,7 +92,9 @@
     <Compile Include="Assets\Scripts\PlayerHealth.cs" />
     <Compile Include="Assets\Scripts\Procedural\TrapPlacement.cs" />
     <Compile Include="Assets\Scripts\TimedDestroy.cs" />
+    <Compile Include="Assets\Scripts\CrimsonArenaTrigger.cs" />
     <Compile Include="Assets\Scripts\TextCanvas.cs" />
+    <Compile Include="Assets\Scripts\CrimsonAI.cs" />
     <Compile Include="Assets\TextMesh Pro\Examples &amp; Extras\Scripts\TMP_ExampleScript_01.cs" />
     <Compile Include="Assets\TextMesh Pro\Examples &amp; Extras\Scripts\TMPro_InstructionOverlay.cs" />
     <Compile Include="Assets\TextMesh Pro\Examples &amp; Extras\Scripts\VertexShakeB.cs" />
@@ -142,10 +145,12 @@
     <Compile Include="Assets\Scripts\RoomClearPortal.cs" />
     <Compile Include="Assets\Scripts\ImpactLightStatic.cs" />
     <Compile Include="Assets\Scripts\PlayerMovement.cs" />
+    <Compile Include="Assets\Scripts\SkitterLightSensor.cs" />
     <Compile Include="Assets\Scripts\MainMenuController.cs" />
     <Compile Include="Assets\TextMesh Pro\Examples &amp; Extras\Scripts\DropdownSample.cs" />
     <Compile Include="Assets\TextMesh Pro\Examples &amp; Extras\Scripts\VertexColorCycler.cs" />
     <Compile Include="Assets\Scripts\Procedural\RandomWalkGenerator.cs" />
+    <Compile Include="Assets\Scripts\ShadowArenaTrigger.cs" />
     <Compile Include="Assets\Scripts\Key.cs" />
     <Compile Include="Assets\Scripts\LevelExit.cs" />
     <Compile Include="Assets\TextMesh Pro\Examples &amp; Extras\Scripts\ObjectSpin.cs" />
