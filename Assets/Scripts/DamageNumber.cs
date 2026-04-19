@@ -28,7 +28,7 @@ public class DamageNumber : MonoBehaviour
         var tmp = go.AddComponent<TextMeshPro>();
 
         tmp.text      = "-" + amount;
-        tmp.fontSize  = 6f;                              // bigger & punchy
+        tmp.fontSize  = 14f;
         tmp.alignment = TextAlignmentOptions.Center;
         tmp.fontStyle = FontStyles.Bold;
         tmp.color     = new Color(1f, 0.22f, 0.1f, 1f); // hot red-orange

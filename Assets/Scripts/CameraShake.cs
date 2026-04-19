@@ -1,18 +1,19 @@
 using UnityEngine;
-using System.Collections;
 
+[DefaultExecutionOrder(100)] // runs after CameraFollow (default order 0)
 public class CameraShake : MonoBehaviour
 {
     public static CameraShake Instance;
 
-    private Coroutine activeShake;
-    private Vector3 restPosition;
+    private float shakeDuration;
+    private float shakeMagnitude;
+    private float shakeElapsed;
+    private bool  isShaking;
 
     void Awake()
     {
         if (Instance != null && Instance != this) { Destroy(gameObject); return; }
         Instance = this;
-        restPosition = transform.localPosition;
     }
 
     void OnDestroy()
@@ -22,30 +23,26 @@ public class CameraShake : MonoBehaviour
 
     public void Shake(float duration, float magnitude)
     {
-        if (activeShake != null)
-        {
-            StopCoroutine(activeShake);
-            transform.localPosition = restPosition;
-        }
-        activeShake = StartCoroutine(ShakeRoutine(duration, magnitude));
+        shakeDuration  = duration;
+        shakeMagnitude = magnitude;
+        shakeElapsed   = 0f;
+        isShaking      = true;
     }
 
-    IEnumerator ShakeRoutine(float duration, float magnitude)
+    void LateUpdate()
     {
-        float elapsed = 0f;
+        if (!isShaking) return;
 
-        while (elapsed < duration)
+        shakeElapsed += Time.unscaledDeltaTime;
+        if (shakeElapsed >= shakeDuration)
         {
-            float x = Random.Range(-1f, 1f) * magnitude;
-            float y = Random.Range(-1f, 1f) * magnitude;
-
-            transform.localPosition = restPosition + new Vector3(x, y, 0);
-
-            elapsed += Time.unscaledDeltaTime;
-            yield return null;
+            isShaking = false;
+            return;
         }
 
-        transform.localPosition = restPosition;
-        activeShake = null;
+        // CameraFollow has already positioned the camera this frame — add offset on top
+        float x = Random.Range(-1f, 1f) * shakeMagnitude;
+        float y = Random.Range(-1f, 1f) * shakeMagnitude;
+        transform.position += new Vector3(x, y, 0f);
     }
 }
