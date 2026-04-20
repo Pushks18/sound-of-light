@@ -4,16 +4,19 @@ using UnityEngine.UI;
 using System.Collections;
 
 /// <summary>
-/// Boss AI for Umbra — NewBoss2Scene.
+/// Boss AI for Umbra — IsshinBossScene.
 ///
 /// COMBAT:
-///   Close  → large slash, phase1: 2-3 s interval / phase2: 0.5 s multi-slash.
+///   Close  → large slash, phase1: 2-3 s interval / phase2: combo of slashes with dodge windows.
 ///   Far    → rapid bullets (0.1 s cooldown).
 ///   Idle   → periodic multi-directional bullet burst every ~5 s.
 ///   Berserk→ every 5 s: chases player at high speed, zig-zags, contact dmg,
-///            omni-bursts on each zig turn. Lasts 7-8 s.
+///            omni-bursts on each zig turn. Lasts ~4 s.
+///            Flash (L key) during berserk → boss stunned for 1.3 s.
 ///   Phase2 → periodic full-arena SWEEP: grey overlay + screen warning,
 ///            player must DASH to survive.
+///            Entering phase 2: ground shake + "!!!" + camera zoom.
+///            Dash during a phase-2 slash → boss takes 10 bonus damage.
 /// </summary>
 public class ShadowBossAI : MonoBehaviour
 {
@@ -36,19 +39,21 @@ public class ShadowBossAI : MonoBehaviour
     [SerializeField] float closeRangeThreshold = 4f;
 
     [Header("Attack — Close Slash")]
-    [SerializeField] float telegraphDuration    = 0.40f;
-    [SerializeField] float slashActiveDuration  = 0.30f;
-    [SerializeField] float recoverDuration      = 0.30f;
+    [SerializeField] float telegraphDuration    = 1.00f;  // increased subtly for dodge room
+    [SerializeField] float slashActiveDuration  = 0.50f;
+    [SerializeField] float recoverDuration      = 0.50f;
     // Phase 1: single slash
     [SerializeField] float phase1SlashRadius    = 9f;
     [SerializeField] float phase1SlashAngle     = 220f;
     [SerializeField] float phase1AttackMin      = 2f;
     [SerializeField] float phase1AttackMax      = 3f;
-    // Phase 2: rapid multi-slash combo
-    [SerializeField] float phase2SlashRadius    = 30f;   // covers full arena
+    // Phase 2: rapid multi-slash combo — wider gaps so player can dodge
+    [SerializeField] float phase2SlashRadius    = 30f;
     [SerializeField] float phase2SlashAngle     = 360f;
-    [SerializeField] float phase2AttackInterval = 0.5f;  // time between consecutive slashes
-    [SerializeField] int   phase2SlashComboCount = 3;    // slashes per combo
+    [SerializeField] float phase2AttackInterval = 1.3f;   // time between consecutive slashes (was 0.5 — now gives dodge room)
+    [SerializeField] float phase2ComboCD        = 3.5f;   // cooldown after full combo before next one
+    [SerializeField] float phase2TelegraphTime  = 0.70f;  // per-slash telegraph in phase 2 (longer = more flash warning)
+    [SerializeField] int   phase2SlashComboCount = 3;
 
     [Header("Attack — Rapid Fire (far range)")]
     [SerializeField] float      rapidFireCooldown = 0.10f;
@@ -59,12 +64,13 @@ public class ShadowBossAI : MonoBehaviour
     [SerializeField] int   multiBurstCount    = 8;
 
     [Header("Attack — Berserk Rush")]
-    [SerializeField] float berserkInterval      = 5f;
-    [SerializeField] float berserkDuration      = 7.5f;
-    [SerializeField] float berserkDirChangeTime = 0.30f;
-    [SerializeField] int   berserkBulletCount   = 14;
-    [SerializeField] float berserkSpeedMult     = 1.7f;
-    [SerializeField] int   berserkContactDamage = 1;
+    [SerializeField] float berserkInterval          = 3f;
+    [SerializeField] float berserkDuration          = 3.0f;   // short berserk window; flash ends it early
+    [SerializeField] float berserkDirChangeTime     = 0.30f;
+    [SerializeField] int   berserkBulletCount       = 14;
+    [SerializeField] float berserkSpeedMult         = 1.7f;
+    [SerializeField] int   berserkContactDamage     = 1;
+    [SerializeField] float berserkFlashStunDuration = 6f;   // stun when player flashes during berserk
 
     [Header("Attack — Phase 2 Sweep")]
     [SerializeField] float sweepWarningDuration = 3.0f;
@@ -72,8 +78,9 @@ public class ShadowBossAI : MonoBehaviour
     [SerializeField] float phase2SweepInterval  = 20f;
 
     [Header("Damage")]
-    [SerializeField] int   slashDamageToPlayer = 1;
-    [SerializeField] float slashDamageOnBoss   = 5f;
+    [SerializeField] int   slashDamageToPlayer  = 1;
+    [SerializeField] float slashDamageOnBoss    = 5f;
+    [SerializeField] float dashDodgeBonusDamage = 10f;  // bonus damage boss takes when player dashes a phase-2 slash
 
     [Header("Auto-Start")]
     [SerializeField] float autoStartDelay = 5f;
@@ -101,7 +108,10 @@ public class ShadowBossAI : MonoBehaviour
 
     bool rapidFireRunning;
     bool berserkRunning;
+    bool berserkStunned;
     bool sweepScheduled;
+    bool phase2EffectsPlayed;
+    bool specialStunned;      // true while player boomerang special is active
 
     Transform      playerTransform;
     PlayerMovement playerMovement;
@@ -138,12 +148,9 @@ public class ShadowBossAI : MonoBehaviour
 
     void BuildVisuals()
     {
-        // Kill ALL pre-existing child Light2Ds (EyeLeft/EyeRight glow remnants)
-        // This runs regardless of whether those GameObjects are active or not.
         foreach (var oldLight in GetComponentsInChildren<Light2D>(true))
             oldLight.enabled = false;
 
-        // Also set the GameObjects themselves inactive by name
         foreach (Transform child in transform)
             if (child.name == "EyeLeft" || child.name == "EyeRight")
                 child.gameObject.SetActive(false);
@@ -252,20 +259,10 @@ public class ShadowBossAI : MonoBehaviour
         if (state == BossState.Dormant || state == BossState.Intro || state == BossState.Dead)
             return;
 
-        stateTimer -= Time.deltaTime;
+        // Boomerang special — boss completely frozen while it's active
+        if (specialStunned) return;
 
-        // Phase 2 sweep — triggers only from Idle
-        if (IsPhase2 && !sweepScheduled && state == BossState.Idle)
-        {
-            sweepTimer -= Time.deltaTime;
-            if (sweepTimer <= 0f)
-            {
-                sweepTimer     = phase2SweepInterval;
-                sweepScheduled = true;
-                StartCoroutine(SweepAttack());
-                return;
-            }
-        }
+        stateTimer -= Time.deltaTime;
 
         // Multi-burst — fires in Idle/CloseAttack (not during berserk/rapid fire)
         if (state == BossState.Idle || state == BossState.CloseAttack ||
@@ -335,8 +332,9 @@ public class ShadowBossAI : MonoBehaviour
         if (stateTimer <= 0f)
         {
             state       = BossState.Idle;
+            // Phase 2 has a longer cooldown between combos so player has room to attack
             attackTimer = IsPhase2
-                ? phase2AttackInterval
+                ? phase2ComboCD
                 : Random.Range(phase1AttackMin, phase1AttackMax);
             RestoreBaseColors();
         }
@@ -348,11 +346,13 @@ public class ShadowBossAI : MonoBehaviour
     {
         if (rb == null) return;
 
-        // Hard-clamp position every physics frame — prevents any state from escaping
         ClampToBounds();
 
+        // Freeze completely during player boomerang special
+        if (specialStunned) { rb.linearVelocity = Vector2.zero; return; }
+
         if (playerTransform == null) return;
-        if (state == BossState.Berserk) return; // berserk moves itself
+        if (state == BossState.Berserk) return;
 
         if (state != BossState.Idle) { rb.linearVelocity = Vector2.zero; return; }
 
@@ -386,7 +386,6 @@ public class ShadowBossAI : MonoBehaviour
         if (clamped)
         {
             rb.MovePosition(pos);
-            // Kill velocity component pointing out of bounds
             Vector2 vel = rb.linearVelocity;
             if (pos.x <= minX && vel.x < 0f) vel.x = 0f;
             if (pos.x >= maxX && vel.x > 0f) vel.x = 0f;
@@ -431,17 +430,70 @@ public class ShadowBossAI : MonoBehaviour
         {
             if (state == BossState.Dead) yield break;
 
-            // Brief telegraph flash for each slash
-            SetGlow(new Color(1f, 1f, 1f), 6f);
-            yield return new WaitForSeconds(telegraphDuration * 0.6f);
+            // Longer telegraph flash — gives player time to spot the warning and dash
+            float telegraphT = 0f;
+            while (telegraphT < phase2TelegraphTime)
+            {
+                telegraphT += Time.deltaTime;
+                float pulse = Mathf.PingPong(telegraphT * 6f, 1f);
+                SetGlow(Color.Lerp(new Color(0.45f, 0.60f, 0.85f), Color.white, pulse),
+                        Mathf.Lerp(0.6f, 8f, pulse));
 
+                // Flash body white during warning
+                if (allRenderers != null)
+                    for (int k = 0; k < allRenderers.Length; k++)
+                        if (allRenderers[k] != null)
+                            allRenderers[k].color = Color.Lerp(
+                                baseColors[k],
+                                new Color(0.95f, 0.95f, 1.0f, baseColors[k].a),
+                                pulse * 0.85f);
+                yield return null;
+            }
+
+            RestoreBaseColors();
             FireBossSlash(phase2SlashRadius, phase2SlashAngle);
             SetGlow(new Color(0.45f, 0.60f, 0.85f), 0.6f);
 
-            yield return new WaitForSeconds(slashActiveDuration + phase2AttackInterval);
+            // Check if player dashed during the slash active window → bonus damage
+            yield return StartCoroutine(CheckDashDodgeDamage(slashActiveDuration));
+
+            // Pause between slashes — room for player to counter-attack
+            yield return new WaitForSeconds(phase2AttackInterval);
         }
 
         EnterRecover();
+    }
+
+    // If player is dashing while the full-arena slash is active, they dodged it → boss takes bonus damage
+    IEnumerator CheckDashDodgeDamage(float windowDuration)
+    {
+        bool dodgeRegistered = false;
+        float elapsed = 0f;
+        while (elapsed < windowDuration)
+        {
+            elapsed += Time.deltaTime;
+            if (!dodgeRegistered && playerMovement != null && playerMovement.IsDashing
+                && playerTransform != null)
+            {
+                float dist = Vector2.Distance(transform.position, playerTransform.position);
+                if (dist <= phase2SlashRadius)
+                {
+                    dodgeRegistered = true;
+                    ApplyDamage(dashDodgeBonusDamage);
+                    StartCoroutine(DashDodgeFeedback());
+                }
+            }
+            yield return null;
+        }
+    }
+
+    // Brief visual feedback when player successfully dash-dodges a slash
+    IEnumerator DashDodgeFeedback()
+    {
+        SetGlow(new Color(1f, 0.4f, 0.1f), 7f);
+        CameraShake.Instance?.Shake(0.12f, 0.18f);
+        yield return new WaitForSeconds(0.25f);
+        SetGlow(new Color(0.45f, 0.60f, 0.85f), 0.6f);
     }
 
     // ── Boss Slash ────────────────────────────────────────────────────────────
@@ -465,7 +517,6 @@ public class ShadowBossAI : MonoBehaviour
         float halfRad  = angleDeg * 0.5f * Mathf.Deg2Rad;
         int   segments = is360 ? 24 : 20;
 
-        // Build polygon for collider
         var points = new Vector2[segments + 2];
         points[0] = Vector2.zero;
         for (int i = 0; i <= segments; i++)
@@ -473,7 +524,7 @@ public class ShadowBossAI : MonoBehaviour
             float a = -halfRad + 2f * halfRad * i / segments;
             points[i + 1] = new Vector2(Mathf.Sin(a), Mathf.Cos(a)) * radius;
         }
-        if (is360) points[segments + 1] = points[1]; // close circle
+        if (is360) points[segments + 1] = points[1];
 
         var col = slashObj.AddComponent<PolygonCollider2D>();
         col.isTrigger = true;
@@ -509,7 +560,6 @@ public class ShadowBossAI : MonoBehaviour
         var   verts = new Vector3[vc];
         var   cols  = new Color[vc];
         verts[0] = Vector3.zero;
-        // 360° sweep is greyed-out; directional slash is blue-white
         cols[0]  = is360
             ? new Color(0.6f, 0.6f, 0.6f, 0.25f)
             : new Color(0.45f, 0.60f, 0.85f, 0.28f);
@@ -534,7 +584,6 @@ public class ShadowBossAI : MonoBehaviour
         mesh.RecalculateNormals();
         mf.mesh = mesh;
 
-        // Edge line only for directional slashes
         if (!is360)
         {
             var edgeObj = new GameObject("BossSlashEdge");
@@ -600,7 +649,6 @@ public class ShadowBossAI : MonoBehaviour
     void FireMultiBurst()
     {
         if (bulletPrefab == null) return;
-        // Aim first bullet toward player, then spread evenly around
         float baseAngle = 0f;
         if (playerTransform != null)
             baseAngle = Mathf.Atan2(
@@ -617,15 +665,18 @@ public class ShadowBossAI : MonoBehaviour
     IEnumerator BerserkRush()
     {
         berserkRunning = true;
+        berserkStunned = false;
         state          = BossState.Berserk;
 
         SetGlow(new Color(1f, 0.15f, 0.15f), 5f);
 
-        // Red flash on body
         if (allRenderers != null)
             for (int i = 0; i < allRenderers.Length; i++)
                 if (allRenderers[i] != null)
                     allRenderers[i].color = Color.Lerp(baseColors[i], new Color(1f, 0.2f, 0.2f), 0.65f);
+
+        // Brief camera zoom-out on berserk start to show the arena
+        StartCoroutine(BerserkCameraZoom());
 
         float   elapsed    = 0f;
         float   dirTimer   = 0f;
@@ -637,9 +688,16 @@ public class ShadowBossAI : MonoBehaviour
             elapsed  += Time.deltaTime;
             dirTimer -= Time.deltaTime;
 
+            // Flash stun check — if stunned, pause movement
+            if (berserkStunned)
+            {
+                if (rb != null) rb.linearVelocity = Vector2.zero;
+                yield return null;
+                continue;
+            }
+
             if (dirTimer <= 0f && playerTransform != null)
             {
-                // Chase player with a random zig-zag offset
                 Vector2 toPlayer = ((Vector2)playerTransform.position - (Vector2)transform.position).normalized;
                 float   baseAng  = Mathf.Atan2(toPlayer.y, toPlayer.x) * Mathf.Rad2Deg;
                 float   offset   = Random.Range(30f, 70f) * (Random.value > 0.5f ? 1f : -1f);
@@ -647,10 +705,9 @@ public class ShadowBossAI : MonoBehaviour
                 dir              = new Vector2(Mathf.Cos(rad), Mathf.Sin(rad));
                 dirTimer         = berserkDirChangeTime;
 
-                FireOmniBurst(); // burst on every zig turn
+                FireOmniBurst();
             }
 
-            // Bounce off room walls based on CURRENT position (safe at high speed)
             Vector2 cur    = rb != null ? rb.position : (Vector2)transform.position;
             float   margin = 1.5f;
             bool    bounced = false;
@@ -667,6 +724,7 @@ public class ShadowBossAI : MonoBehaviour
         }
 
         berserkRunning = false;
+        berserkStunned = false;
         if (rb != null) rb.linearVelocity = Vector2.zero;
         RestoreBaseColors();
         SetGlow(new Color(0.45f, 0.60f, 0.85f), 0.6f);
@@ -676,6 +734,147 @@ public class ShadowBossAI : MonoBehaviour
             state       = BossState.Idle;
             attackTimer = Random.Range(phase1AttackMin, phase1AttackMax);
         }
+    }
+
+    // Flash during berserk → freeze boss for stun duration, then END berserk entirely
+    IEnumerator BerserkFlashStun()
+    {
+        berserkStunned = true;
+
+        // Boss turns icy cyan — visually frozen
+        SetGlow(new Color(0.4f, 1f, 1f), 10f);
+        if (allRenderers != null)
+            for (int i = 0; i < allRenderers.Length; i++)
+                if (allRenderers[i] != null)
+                    allRenderers[i].color = Color.Lerp(baseColors[i], new Color(0.55f, 0.95f, 1f), 0.9f);
+
+        CameraShake.Instance?.Shake(0.22f, 0.30f);
+
+        // Frozen duration — boss can't move
+        yield return new WaitForSeconds(berserkFlashStunDuration);
+
+        // Berserk ends: force state back to Idle
+        berserkStunned = false;
+        berserkRunning = false;
+        if (rb != null) rb.linearVelocity = Vector2.zero;
+
+        RestoreBaseColors();
+        SetGlow(new Color(0.45f, 0.60f, 0.85f), 0.6f);
+
+        if (state == BossState.Berserk)
+        {
+            state       = BossState.Idle;
+            attackTimer = Random.Range(phase1AttackMin, phase1AttackMax);
+        }
+    }
+
+    // Public: lets PlayerBoomerangDash deal direct damage to this boss
+    public void TakeBoomerangDamage(float amount) => ApplyDamage(amount);
+
+    // Super dash hit — damage + launch the boss far in the given direction
+    public IEnumerator TakeSuperDashHit(float damage, Vector2 launchDir, float launchDist)
+    {
+        specialStunned = true;
+        if (rb != null) rb.linearVelocity = Vector2.zero;
+
+        ApplyDamage(damage);
+
+        // Visual: brief white-hot flash then dark stagger
+        SetGlow(new Color(1f, 0.85f, 0.3f), 12f);
+        if (allRenderers != null)
+            for (int i = 0; i < allRenderers.Length; i++)
+                if (allRenderers[i] != null)
+                    allRenderers[i].color = Color.white;
+
+        yield return new WaitForSeconds(0.08f);
+
+        // Fly to launch target
+        Vector2 from   = transform.position;
+        Vector2 target = ClampToRoomPublic((Vector2)transform.position + launchDir * launchDist);
+        float   dur    = 0.38f;
+        float   t      = 0f;
+
+        SetGlow(new Color(1f, 0.5f, 0.1f), 6f);
+        RestoreBaseColors();
+
+        while (t < dur)
+        {
+            t += Time.deltaTime;
+            float ease = Mathf.SmoothStep(0f, 1f, t / dur);
+            if (rb != null) rb.MovePosition(Vector2.Lerp(from, target, ease));
+            else            transform.position = Vector2.Lerp(from, target, ease);
+            yield return null;
+        }
+        if (rb != null) rb.MovePosition(target);
+
+        // Slam into far wall — shake + stagger pause
+        CameraShake.Instance?.Shake(0.35f, 0.45f);
+        yield return new WaitForSeconds(0.55f);
+
+        specialStunned = false;
+        SetGlow(new Color(0.45f, 0.60f, 0.85f), 0.6f);
+    }
+
+    // Expose ClampToBounds for external callers
+    public Vector2 ClampToRoomPublic(Vector2 pos)
+    {
+        float margin = 1.2f;
+        float minX = roomCenter.x - roomHalfSize.x + margin;
+        float maxX = roomCenter.x + roomHalfSize.x - margin;
+        float minY = roomCenter.y - roomHalfSize.y + margin;
+        float maxY = roomCenter.y + roomHalfSize.y - margin;
+        pos.x = Mathf.Clamp(pos.x, minX, maxX);
+        pos.y = Mathf.Clamp(pos.y, minY, maxY);
+        return pos;
+    }
+
+    // Freeze the boss for the boomerang special duration
+    public IEnumerator SpecialStun(float duration)
+    {
+        specialStunned = true;
+        if (rb != null) rb.linearVelocity = Vector2.zero;
+
+        // Freeze visual: slight dark pulse
+        SetGlow(new Color(0.2f, 0.2f, 0.25f), 0.3f);
+
+        yield return new WaitForSeconds(duration);
+
+        specialStunned = false;
+        SetGlow(new Color(0.45f, 0.60f, 0.85f), 0.6f);
+    }
+
+    // Brief zoom-out on berserk start so the player can see the whole arena
+    IEnumerator BerserkCameraZoom()
+    {
+        Camera cam = Camera.main;
+        if (cam == null) yield break;
+
+        float origSize  = cam.orthographicSize;
+        float zoomOut   = origSize * 1.35f;
+        float zoomDur   = 0.35f;
+        float holdDur   = 0.5f;
+        float restoreDur = 0.5f;
+
+        // Zoom out
+        float t = 0f;
+        while (t < zoomDur)
+        {
+            t += Time.deltaTime;
+            cam.orthographicSize = Mathf.Lerp(origSize, zoomOut, Mathf.SmoothStep(0f, 1f, t / zoomDur));
+            yield return null;
+        }
+
+        yield return new WaitForSeconds(holdDur);
+
+        // Restore
+        t = 0f;
+        while (t < restoreDur)
+        {
+            t += Time.deltaTime;
+            cam.orthographicSize = Mathf.Lerp(zoomOut, origSize, Mathf.SmoothStep(0f, 1f, t / restoreDur));
+            yield return null;
+        }
+        cam.orthographicSize = origSize;
     }
 
     void FireOmniBurst()
@@ -691,8 +890,6 @@ public class ShadowBossAI : MonoBehaviour
         if (bulletPrefab == null) return;
         var bullet = Instantiate(bulletPrefab, transform.position,
                                  Quaternion.Euler(0f, 0f, angleDeg - 90f));
-        // Tag as EnemyBullet so Bullet.Start() applies correct visuals,
-        // deals damage to player on hit, and auto-destroys after 3 s.
         bullet.tag = "EnemyBullet";
     }
 
@@ -702,7 +899,6 @@ public class ShadowBossAI : MonoBehaviour
     {
         if (rb != null) rb.linearVelocity = Vector2.zero;
 
-        // Build grey world overlay + screen warning UI
         var overlay = BuildSweepOverlay();
         var warnUI  = BuildSweepWarningUI();
 
@@ -712,17 +908,14 @@ public class ShadowBossAI : MonoBehaviour
         while (elapsed < sweepWarningDuration)
         {
             elapsed += Time.deltaTime;
-            float t     = elapsed / sweepWarningDuration;
             float pulse = Mathf.PingPong(elapsed * 3.5f, 1f);
 
-            // Greyscale overlay pulses darker
             if (overlay != null)
             {
                 var sr  = overlay.GetComponent<SpriteRenderer>();
                 sr.color = new Color(0.65f, 0.65f, 0.65f, Mathf.Lerp(0.08f, 0.40f, pulse));
             }
 
-            // Warning UI fades/pulses
             if (warnUI != null)
             {
                 float alpha = Mathf.Lerp(0.4f, 1f, pulse);
@@ -732,11 +925,9 @@ public class ShadowBossAI : MonoBehaviour
             yield return null;
         }
 
-        // STRIKE — bright grey flash
         if (overlay != null)
             overlay.GetComponent<SpriteRenderer>().color = new Color(0.85f, 0.85f, 0.85f, 0.70f);
 
-        // Damage player unless dashing
         if (playerTransform != null)
         {
             bool safe = playerMovement != null && playerMovement.IsDashing;
@@ -746,10 +937,8 @@ public class ShadowBossAI : MonoBehaviour
 
         yield return new WaitForSeconds(0.15f);
 
-        // Destroy warning UI
         if (warnUI != null) Destroy(warnUI);
 
-        // Fade out overlay
         if (overlay != null)
         {
             var sr = overlay.GetComponent<SpriteRenderer>();
@@ -783,7 +972,6 @@ public class ShadowBossAI : MonoBehaviour
         return obj;
     }
 
-    // Screen-space warning canvas (no TMP needed)
     GameObject BuildSweepWarningUI()
     {
         var canvasObj = new GameObject("SweepWarnCanvas");
@@ -795,13 +983,11 @@ public class ShadowBossAI : MonoBehaviour
         scaler.uiScaleMode         = CanvasScaler.ScaleMode.ScaleWithScreenSize;
         scaler.referenceResolution = new Vector2(1920f, 1080f);
 
-        // Edge-flash panels (top, bottom, left, right)
         CreateEdgePanel(canvasObj, "Top",    new Vector2(0.5f, 1f), new Vector2(1f, 0f),   new Vector2(0f, -8f),  new Vector2(1920f, 18f));
         CreateEdgePanel(canvasObj, "Bottom", new Vector2(0.5f, 0f), new Vector2(1f, 1f),   new Vector2(0f,  8f),  new Vector2(1920f, 18f));
         CreateEdgePanel(canvasObj, "Left",   new Vector2(0f,  0.5f), new Vector2(1f, 0.5f), new Vector2( 8f, 0f), new Vector2(18f, 1080f));
         CreateEdgePanel(canvasObj, "Right",  new Vector2(1f,  0.5f), new Vector2(0f, 0.5f), new Vector2(-8f, 0f), new Vector2(18f, 1080f));
 
-        // Centre warning text
         var textObj = new GameObject("WarnText");
         textObj.transform.SetParent(canvasObj.transform, false);
         var textRT          = textObj.AddComponent<RectTransform>();
@@ -846,7 +1032,196 @@ public class ShadowBossAI : MonoBehaviour
             txt.color = new Color(txt.color.r, txt.color.g, txt.color.b, alpha);
     }
 
-    // ── Contact Damage (berserk) ──────────────────────────────────────────────
+    // ── Phase 2 Entry Effects ─────────────────────────────────────────────────
+
+    IEnumerator Phase2EntryEffects()
+    {
+        // Sustained ground shake
+        StartCoroutine(Phase2GroundShake());
+
+        // Show "!!!" warning UI
+        var warnUI = BuildPhase2EntryUI();
+
+        // Camera: brief zoom to boss then back
+        StartCoroutine(Phase2EntryZoom());
+
+        // Red ground crack ripple
+        StartCoroutine(Phase2GroundRipple());
+
+        yield return new WaitForSeconds(2.0f);
+
+        if (warnUI != null) Destroy(warnUI);
+    }
+
+    IEnumerator Phase2GroundShake()
+    {
+        float dur = 2.5f;
+        float elapsed = 0f;
+        while (elapsed < dur)
+        {
+            elapsed += Time.deltaTime;
+            float intensity = Mathf.Lerp(0.4f, 0.1f, elapsed / dur);
+            CameraShake.Instance?.Shake(0.08f, intensity);
+            yield return new WaitForSeconds(0.08f);
+        }
+    }
+
+    // Expanding dark-red rings from boss position — like cracks in the floor
+    IEnumerator Phase2GroundRipple()
+    {
+        int waves = 4;
+        for (int w = 0; w < waves; w++)
+        {
+            StartCoroutine(SpawnGroundRing(0.3f + w * 0.12f));
+            yield return new WaitForSeconds(0.22f);
+        }
+    }
+
+    IEnumerator SpawnGroundRing(float delay)
+    {
+        yield return new WaitForSeconds(delay);
+
+        var shader = Shader.Find("Sprites/Default");
+        if (shader == null) yield break;
+
+        const int seg = 36;
+        var go = new GameObject("Phase2GroundRing");
+        var lr = go.AddComponent<LineRenderer>();
+        lr.material      = new Material(shader);
+        lr.loop          = true;
+        lr.positionCount = seg;
+        lr.sortingOrder  = 3;
+
+        float maxR   = roomHalfSize.x * 1.8f;
+        float dur    = 0.9f;
+        float elapsed = 0f;
+
+        while (elapsed < dur)
+        {
+            elapsed += Time.deltaTime;
+            float t      = elapsed / dur;
+            float radius = maxR * t;
+            float alpha  = 1f - t;
+            float width  = Mathf.Lerp(0.5f, 0.1f, t);
+
+            lr.startWidth = width; lr.endWidth = width;
+            Color c = new Color(0.8f, 0.1f, 0.1f, alpha);
+            lr.startColor = c; lr.endColor = c;
+
+            Vector2 center = transform.position;
+            for (int i = 0; i < seg; i++)
+            {
+                float angle = (float)i / seg * 2f * Mathf.PI;
+                lr.SetPosition(i, new Vector3(
+                    center.x + Mathf.Cos(angle) * radius,
+                    center.y + Mathf.Sin(angle) * radius, 0f));
+            }
+            yield return null;
+        }
+        Destroy(go);
+    }
+
+    IEnumerator Phase2EntryZoom()
+    {
+        Camera cam = Camera.main;
+        if (cam == null) yield break;
+
+        float origSize  = cam.orthographicSize;
+        float zoomIn    = origSize * 0.72f;
+        float zoomDur   = 0.40f;
+        float holdDur   = 0.55f;
+        float restoreDur = 0.60f;
+
+        // Quick zoom in on the boss
+        float t = 0f;
+        while (t < zoomDur)
+        {
+            t += Time.deltaTime;
+            cam.orthographicSize = Mathf.Lerp(origSize, zoomIn, Mathf.SmoothStep(0f, 1f, t / zoomDur));
+            yield return null;
+        }
+
+        yield return new WaitForSeconds(holdDur);
+
+        // Zoom back out
+        t = 0f;
+        while (t < restoreDur)
+        {
+            t += Time.deltaTime;
+            cam.orthographicSize = Mathf.Lerp(zoomIn, origSize, Mathf.SmoothStep(0f, 1f, t / restoreDur));
+            yield return null;
+        }
+        cam.orthographicSize = origSize;
+    }
+
+    // "!!!" overlay shown on screen when phase 2 begins
+    GameObject BuildPhase2EntryUI()
+    {
+        var canvasObj = new GameObject("Phase2EntryCanvas");
+        var canvas    = canvasObj.AddComponent<Canvas>();
+        canvas.renderMode   = RenderMode.ScreenSpaceOverlay;
+        canvas.sortingOrder = 160;
+
+        var scaler                 = canvasObj.AddComponent<CanvasScaler>();
+        scaler.uiScaleMode         = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+        scaler.referenceResolution = new Vector2(1920f, 1080f);
+
+        // "!!!" large red text in center
+        var textObj = new GameObject("Phase2Text");
+        textObj.transform.SetParent(canvasObj.transform, false);
+        var textRT          = textObj.AddComponent<RectTransform>();
+        textRT.anchorMin    = new Vector2(0.5f, 0.5f);
+        textRT.anchorMax    = new Vector2(0.5f, 0.5f);
+        textRT.sizeDelta    = new Vector2(800f, 180f);
+        textRT.anchoredPosition = Vector2.zero;
+        var text            = textObj.AddComponent<Text>();
+        text.text           = "!!!";
+        text.fontSize       = 120;
+        text.fontStyle      = FontStyle.Bold;
+        text.alignment      = TextAnchor.MiddleCenter;
+        text.color          = new Color(1f, 0.08f, 0.08f, 1f);
+        var font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf")
+                ?? Resources.GetBuiltinResource<Font>("Arial.ttf");
+        if (font != null) text.font = font;
+
+        // Sub-text
+        var subObj = new GameObject("Phase2SubText");
+        subObj.transform.SetParent(canvasObj.transform, false);
+        var subRT           = subObj.AddComponent<RectTransform>();
+        subRT.anchorMin     = new Vector2(0.5f, 0.5f);
+        subRT.anchorMax     = new Vector2(0.5f, 0.5f);
+        subRT.sizeDelta     = new Vector2(700f, 80f);
+        subRT.anchoredPosition = new Vector2(0f, -90f);
+        var subText         = subObj.AddComponent<Text>();
+        subText.text        = "ISSHIN AWAKENS";
+        subText.fontSize    = 42;
+        subText.fontStyle   = FontStyle.BoldAndItalic;
+        subText.alignment   = TextAnchor.MiddleCenter;
+        subText.color       = new Color(0.95f, 0.85f, 0.85f, 0.9f);
+        if (font != null) subText.font = font;
+
+        // Pulse the text via coroutine on the canvas
+        StartCoroutine(PulsePhase2UI(canvasObj));
+
+        return canvasObj;
+    }
+
+    IEnumerator PulsePhase2UI(GameObject ui)
+    {
+        if (ui == null) yield break;
+        float elapsed = 0f;
+        float dur     = 2.0f;
+        while (elapsed < dur && ui != null)
+        {
+            elapsed += Time.deltaTime;
+            float pulse = Mathf.PingPong(elapsed * 4f, 1f);
+            float alpha = Mathf.Lerp(0.5f, 1f, pulse) * Mathf.Clamp01(1f - (elapsed - 1.4f) / 0.6f);
+            if (ui != null) UpdateSweepWarningAlpha(ui, alpha);
+            yield return null;
+        }
+    }
+
+    // ── Contact Damage / Trigger ──────────────────────────────────────────────
 
     void OnTriggerEnter2D(Collider2D other)
     {
@@ -858,14 +1233,25 @@ public class ShadowBossAI : MonoBehaviour
             return;
         }
 
+        // Flash (L key) during berserk → stun boss
+        if (state == BossState.Berserk
+            && other.CompareTag("LightSource")
+            && other.GetComponent<LightWaveFader>() != null
+            && !other.GetComponent<SlashBulletDeflector>()
+            && !berserkStunned)
+        {
+            StartCoroutine(BerserkFlashStun());
+            return;
+        }
+
         if (other.CompareTag("LightSource") && other.GetComponent<SlashBulletDeflector>() != null)
             ApplyDamage(slashDamageOnBoss);
     }
 
     void OnTriggerStay2D(Collider2D other)
     {
-        // Continuous contact damage during berserk (iFrames on PlayerHealth prevent spam)
         if (state == BossState.Dead || state != BossState.Berserk) return;
+        if (berserkStunned) return;
         if (other.CompareTag("Player"))
             other.GetComponent<PlayerHealth>()?.TakeDamage(berserkContactDamage);
     }
@@ -877,6 +1263,14 @@ public class ShadowBossAI : MonoBehaviour
         if (healthBar != null) healthBar.SetHealth(health);
         DamageNumber.Spawn(Mathf.CeilToInt(amount), transform.position);
         StartCoroutine(HitFlash());
+
+        // Trigger phase 2 entry effects the first time health crosses the threshold
+        if (!phase2EffectsPlayed && health <= maxHealth * 0.40f)
+        {
+            phase2EffectsPlayed = true;
+            StartCoroutine(Phase2EntryEffects());
+        }
+
         if (health <= 0f) { StopAllCoroutines(); StartCoroutine(DeathSequence()); }
     }
 
@@ -981,6 +1375,9 @@ public class BossSlashHitbox : MonoBehaviour
     {
         if (hasHit) return;
         if (!other.CompareTag("Player")) return;
+        // If player is dashing, they dodge the hit (handled by parent boss for bonus damage)
+        var pm = other.GetComponent<PlayerMovement>();
+        if (pm != null && pm.IsDashing) return;
         hasHit = true;
         other.GetComponent<PlayerHealth>()?.TakeDamage(damage);
     }
