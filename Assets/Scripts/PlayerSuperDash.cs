@@ -67,7 +67,7 @@ public class PlayerSuperDash : MonoBehaviour
 
     void TryLaunch()
     {
-        var boss = FindFirstObjectByType<ShadowBossAI>();
+        var boss = FindAnyObjectByType<ShadowBossAI>();
         if (boss == null || !boss.IsInBattle) return;
 
         StartCoroutine(SuperDashSequence(boss));

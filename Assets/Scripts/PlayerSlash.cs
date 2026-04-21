@@ -19,6 +19,7 @@ public class PlayerSlash : MonoBehaviour
 
     private PlayerMovement playerMovement;
     private float cooldownTimer;
+    private LevelExit cachedExit;
 
     [SerializeField] private bool disableSlashOnLevel;
 
@@ -36,12 +37,10 @@ public class PlayerSlash : MonoBehaviour
         if (cooldownTimer > 0f)
             cooldownTimer -= Time.deltaTime;
 
-        LevelExit exit = FindFirstObjectByType<LevelExit>();
-        if (exit != null)
-        {
-            bool done = exit.GetLevelDone();
-            if (done) return;
-        }
+        if (cachedExit == null)
+            cachedExit = FindAnyObjectByType<LevelExit>();
+        if (cachedExit != null && cachedExit.GetLevelDone())
+            return;
 
         if (Input.GetKeyDown(KeyCode.J) && cooldownTimer <= 0f && !disableSlashOnLevel)
         {
@@ -172,10 +171,13 @@ public class PlayerSlash : MonoBehaviour
     void DamageEnemiesInArc(Vector2 aim)
     {
         float halfAngle = slashAngle * 0.5f;
-        var enemies = FindObjectsByType<EnemyHealth>(FindObjectsSortMode.None);
+        var enemies = EnemyRegistry.AllHealth;
 
-        foreach (var health in enemies)
+        for (int i = 0; i < enemies.Count; i++)
         {
+            var health = enemies[i];
+            if (health == null) continue;
+
             Vector2 toEnemy = (Vector2)health.transform.position - (Vector2)transform.position;
             float distance = toEnemy.magnitude;
 

@@ -16,6 +16,7 @@ public class PauseMenu : MonoBehaviour
 
     private Transform checkpointButtonContainer;
     private bool isPaused;
+    private LevelExit cachedExit;
 
     void Awake()
     {
@@ -40,12 +41,10 @@ public class PauseMenu : MonoBehaviour
         if (GameManager.Instance != null && GameManager.Instance.gameEnded)
             return;
 
-        LevelExit exit = FindFirstObjectByType<LevelExit>();
-        if (exit != null)
-        {
-            bool done = exit.GetLevelDone();
-            if (done) return;
-        }
+        if (cachedExit == null)
+            cachedExit = FindAnyObjectByType<LevelExit>();
+        if (cachedExit != null && cachedExit.GetLevelDone())
+            return;
 
         if (Input.GetKeyDown(KeyCode.Escape))
         {
@@ -96,7 +95,7 @@ public class PauseMenu : MonoBehaviour
     {
         ClearChildren(checkpointButtonContainer);
 
-        RoomsManager roomsManager = FindFirstObjectByType<RoomsManager>();
+        RoomsManager roomsManager = FindAnyObjectByType<RoomsManager>();
         bool hasRoomsManager = roomsManager != null;
 
         if (checkpointLabel != null)
@@ -181,7 +180,7 @@ public class PauseMenu : MonoBehaviour
         Rigidbody2D rb = player.GetComponent<Rigidbody2D>();
         if (rb != null)
         {
-            rb.velocity = Vector2.zero;
+            rb.linearVelocity = Vector2.zero;
             rb.angularVelocity = 0f;
             rb.position = targetPosition;
             rb.Sleep();

@@ -3,7 +3,7 @@ using UnityEngine.Rendering.Universal;
 
 public class Bullet : MonoBehaviour
 {
-    public float speed = 15f;
+    public float speed = 28f;
     public GameObject impactEchoPrefab;
 
     [Header("Player Bullet Light")]
@@ -14,14 +14,21 @@ public class Bullet : MonoBehaviour
     private Rigidbody2D rb;
     private static Material cachedSpriteMat;
 
+    // Static list so PlayerDash can iterate enemy bullets without FindObjectsByType
+    private static readonly System.Collections.Generic.List<Bullet> enemyBullets = new System.Collections.Generic.List<Bullet>();
+    public static System.Collections.Generic.IReadOnlyList<Bullet> EnemyBullets => enemyBullets;
+    private bool isEnemyBullet;
+
     void Start()
     {
         rb = GetComponent<Rigidbody2D>();
         rb.linearVelocity = transform.up * speed;
 
         // Enemy bullets emit a faint red light
-        if (CompareTag("EnemyBullet"))
+        isEnemyBullet = CompareTag("EnemyBullet");
+        if (isEnemyBullet)
         {
+            enemyBullets.Add(this);
             var sr = GetComponent<SpriteRenderer>();
             if (sr != null)
             {
@@ -44,7 +51,6 @@ public class Bullet : MonoBehaviour
         // Player bullets emit light and activate enemies
         if (CompareTag("Bullet"))
         {
-            // Make the bullet sprite always visible (unlit) and larger
             var sr = GetComponent<SpriteRenderer>();
             if (sr != null)
             {
@@ -65,9 +71,7 @@ public class Bullet : MonoBehaviour
             light.pointLightInnerAngle = 360f;
             light.shadowsEnabled = false;
 
-            // Light source trigger so enemies detect the travelling light.
-            // Needs its own Rigidbody2D so its collider doesn't route
-            // OnTriggerEnter2D callbacks to the parent bullet.
+            // Light source trigger so enemies detect the travelling light
             var lightTrigger = new GameObject("BulletLightTrigger");
             lightTrigger.transform.SetParent(transform, false);
             lightTrigger.transform.localPosition = Vector3.zero;
@@ -138,4 +142,9 @@ public class Bullet : MonoBehaviour
         Destroy(gameObject);
     }
 
+    void OnDestroy()
+    {
+        if (isEnemyBullet)
+            enemyBullets.Remove(this);
+    }
 }

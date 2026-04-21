@@ -3891,11 +3891,11 @@ MonoBehaviour:
   bulletLabel: {fileID: 0}
   dashLabel: {fileID: 0}
   flashLabel: {fileID: 0}
-  bulletCooldown: 0.3
+  bulletCooldown: 0.1
   dashCooldown: 1
   flashCooldown: 4
-  bulletRegenDelay: 5
-  bulletRegenInterval: 0.5
+  bulletRegenDelay: 1.5
+  bulletRegenInterval: 0.12
   dashRegenDelay: 8
   dashRegenInterval: 2
   flashRegenDelay: 8

@@ -10,7 +10,7 @@ public class EnemyAI : MonoBehaviour
     public float stopDistance = 1.2f;
 
     [Header("Hunt Mode")]
-    public float pathRecalcInterval = 0.4f;
+    public float pathRecalcInterval = 0.7f;
 
     private Transform player;
     private Rigidbody2D rb;
@@ -30,10 +30,18 @@ public class EnemyAI : MonoBehaviour
     private int pathIndex;
     private float pathRecalcTimer;
 
+    // Stuck detection
+    private Vector2 lastProgressPos;
+    private float stuckTimer;
+    private const float StuckMoveDist = 0.2f;
+    private const float StuckRecalcTime = 0.25f;
+
     public bool IsActivated => activated;
 
     void Start()
     {
+        EnemyRegistry.Register(this);
+
         rb = GetComponent<Rigidbody2D>();
         rb.mass = 100f;
         rb.constraints = RigidbodyConstraints2D.FreezeRotation;
@@ -44,6 +52,7 @@ public class EnemyAI : MonoBehaviour
             col.isTrigger = false;
 
         player = GameObject.FindGameObjectWithTag("Player")?.transform;
+        lastProgressPos = transform.position;
 
         // Mark glow (small red light when hit)
         var markObj = new GameObject("MarkLight");
@@ -60,7 +69,7 @@ public class EnemyAI : MonoBehaviour
         markLight.shadowsEnabled = false;
         markLight.enabled = false;
         
-        StatusHUD.Instance.UpdateEnemies();
+        StatusHUD.Instance?.UpdateEnemies();
     }
 
     void Update()
@@ -118,25 +127,41 @@ public class EnemyAI : MonoBehaviour
     {
         pathRecalcTimer -= Time.fixedDeltaTime;
 
+        // Stuck detection — if barely moved, force immediate recalc
+        float moved = Vector2.Distance(transform.position, lastProgressPos);
+        if (moved < StuckMoveDist)
+        {
+            stuckTimer += Time.fixedDeltaTime;
+            if (stuckTimer >= StuckRecalcTime)
+            {
+                pathRecalcTimer = -1f; // force recalc now
+                stuckTimer = 0f;
+            }
+        }
+        else
+        {
+            stuckTimer = 0f;
+            lastProgressPos = transform.position;
+        }
+
         if (pathRecalcTimer <= 0f || currentPath == null)
         {
             RecalculatePath();
             pathRecalcTimer = pathRecalcInterval;
         }
 
-        // If pathfinding failed, fall back to direct movement
+        // No valid path — stop instead of pushing into walls
         if (currentPath == null || pathIndex >= currentPath.Count)
         {
-            Vector2 dir = (player.position - transform.position).normalized;
-            rb.linearVelocity = dir * speed;
+            rb.linearVelocity = Vector2.zero;
             return;
         }
 
         Vector3 waypoint = cachedBuilder.CellToWorld(currentPath[pathIndex]);
 
-        // Advance past waypoints we're already close to
+        // Advance past waypoints we're already close to (0.7 for smoother turning)
         while (pathIndex < currentPath.Count - 1 &&
-               Vector2.Distance(transform.position, waypoint) < 0.5f)
+               Vector2.Distance(transform.position, waypoint) < 0.7f)
         {
             pathIndex++;
             waypoint = cachedBuilder.CellToWorld(currentPath[pathIndex]);
@@ -153,7 +178,13 @@ public class EnemyAI : MonoBehaviour
         Vector2Int startCell = cachedBuilder.WorldToCell(transform.position);
         Vector2Int goalCell = cachedBuilder.WorldToCell(player.position);
 
-        currentPath = GridPathfinder.FindPath(startCell, goalCell, cachedBuilder.IsFloor);
+        // Try padded path first so the enemy doesn't clip wall corners
+        currentPath = GridPathfinder.FindPath(startCell, goalCell, cachedBuilder.IsFloorPadded);
+
+        // Fall back to unpadded if no wide path exists
+        if (currentPath == null)
+            currentPath = GridPathfinder.FindPath(startCell, goalCell, cachedBuilder.IsFloor);
+
         pathIndex = 1; // skip the cell we're already standing on
     }
 
@@ -181,8 +212,26 @@ public class EnemyAI : MonoBehaviour
         if (other.CompareTag("LightSource"))
         {
             isCurrentlyLit = true;
-            activated = true;   // permanently activate once lit
+
+            if (!activated)
+            {
+                activated = true;
+                // Enable A* pathfinding on first activation
+                if (!hunting)
+                {
+                    hunting = true;
+                    if (cachedBuilder == null)
+                        cachedBuilder = Object.FindAnyObjectByType<TilemapRoomBuilder>();
+                    RecalculatePath();
+                    pathRecalcTimer = pathRecalcInterval;
+                }
+            }
         }
+    }
+
+    void OnDestroy()
+    {
+        EnemyRegistry.Unregister(this);
     }
 
     public void Stun(float duration)

@@ -247,11 +247,14 @@ public class RoomClearPortal : MonoBehaviour
 
     Light2D CreateRoomLight()
     {
+        // Destroy any leftover global lights from previous rooms to prevent stacking
         var lights = FindObjectsByType<Light2D>(FindObjectsSortMode.None);
         foreach (var l in lights)
         {
             if (l.lightType == Light2D.LightType.Global && l.gameObject.name == "RoomClearLight")
-                return l;
+            {
+                Destroy(l.gameObject);
+            }
         }
 
         var lightObj = new GameObject("RoomClearLight");

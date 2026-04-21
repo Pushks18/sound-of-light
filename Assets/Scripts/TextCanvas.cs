@@ -20,7 +20,7 @@ public class TextCanvas : MonoBehaviour
 
     private void Awake()
     {
-        roomsManager = FindFirstObjectByType<RoomsManager>();
+        roomsManager = FindAnyObjectByType<RoomsManager>();
     }
 
     private void Start()
@@ -89,7 +89,7 @@ public class TextCanvas : MonoBehaviour
 
         if (roomsManager == null)
         {
-            roomsManager = FindFirstObjectByType<RoomsManager>();
+            roomsManager = FindAnyObjectByType<RoomsManager>();
         }
 
         if (roomsManager != null && currentTextNumber >= 0)

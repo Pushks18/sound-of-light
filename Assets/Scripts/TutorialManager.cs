@@ -69,7 +69,7 @@ public class TutorialManager : MonoBehaviour
         // ── Make text larger and bolder ──
         tutorialText.fontSize = 48;
         tutorialText.fontStyle = FontStyles.Bold;
-        tutorialText.enableWordWrapping = true;
+        tutorialText.textWrappingMode = TextWrappingModes.Normal;
         tutorialText.alignment = TextAlignmentOptions.Center;
 
         // ── Widen the rect so longer lines don't clip ──

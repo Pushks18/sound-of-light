@@ -63,7 +63,7 @@ public class PlayerBoomerangDash : MonoBehaviour
 
     void TryLaunch()
     {
-        var boss = FindFirstObjectByType<ShadowBossAI>();
+        var boss = FindAnyObjectByType<ShadowBossAI>();
         if (boss == null || !boss.IsInBattle) return;
 
         StartCoroutine(BoomerangSequence(boss));

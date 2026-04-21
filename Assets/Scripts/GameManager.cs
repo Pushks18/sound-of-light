@@ -97,8 +97,6 @@ public class GameManager : MonoBehaviour
 
     public void EnemyKilled()
     {
-        Debug.Log("EnemyKilled() called");
-
         enemyCount--;
 
         GameUIManager.Instance?.UpdateEnemyCount(enemyCount);
@@ -146,13 +144,13 @@ public class GameManager : MonoBehaviour
 
     void ActivateHuntMode()
     {
-        var enemies = FindObjectsByType<EnemyAI>(FindObjectsSortMode.None);
-        foreach (var enemy in enemies)
+        var enemies = EnemyRegistry.AllAI;
+        for (int i = 0; i < enemies.Count; i++)
         {
+            var enemy = enemies[i];
             if (enemy != null && enemy.enabled)
                 enemy.ActivateHunt();
         }
-        Debug.Log($"[Hunt Mode] {enemies.Length} enemies now hunting the player");
     }
 
     public void PlayerDied()
@@ -180,7 +178,6 @@ public class GameManager : MonoBehaviour
 
     IEnumerator VictorySequence()
     {
-        Debug.Log("VictorySequence() started");
         // Create a global light that illuminates the entire room
         // Try to find an existing Global Light2D first
         Light2D light = null;
@@ -232,12 +229,10 @@ public class GameManager : MonoBehaviour
         if (gameplayUI != null)
             gameplayUI.SetActive(false);
         
-        Debug.Log("ending VictorySequence()");
     }
 
     void BuildWinScreen()
     {
-        Debug.Log("win screen building started");
         // Find or create a Canvas
         var canvas = FindAnyObjectByType<Canvas>();
         if (canvas == null)
@@ -334,7 +329,6 @@ public class GameManager : MonoBehaviour
         buttonText.alignment = TextAlignmentOptions.Center;
 
         EventSystem.current?.SetSelectedGameObject(buttonObj);
-        Debug.Log("win screen building ended");
     }
 
     void EnsureEventSystem()

@@ -106,7 +106,7 @@ public class TilemapRoomBuilder : MonoBehaviour
             ? new Vector3(centreSum.x / floorCount, centreSum.y / floorCount, 0f)
             : Vector3.zero;
 
-        Debug.Log($"[TilemapRoomBuilder] Built {floorCount} floor cells. Centre ≈ {FloorCentre}");
+        // Debug.Log($"[TilemapRoomBuilder] Built {floorCount} floor cells. Centre ≈ {FloorCentre}");
     }
 
     public void SetDoorCell(Vector2Int cell)
@@ -126,6 +126,17 @@ public class TilemapRoomBuilder : MonoBehaviour
     {
         var cell = new Vector3Int(x, y, 0);
         return floorTilemap.HasTile(cell);
+    }
+
+    /// <summary>
+    /// Returns true when (x,y) AND all 4 cardinal neighbours are floor.
+    /// Use for enemy pathfinding so wide colliders don't clip wall corners.
+    /// </summary>
+    public bool IsFloorPadded(int x, int y)
+    {
+        return IsFloor(x, y)
+            && IsFloor(x - 1, y) && IsFloor(x + 1, y)
+            && IsFloor(x, y - 1) && IsFloor(x, y + 1);
     }
 
     /// <summary>

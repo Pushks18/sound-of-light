@@ -33,6 +33,7 @@ public class PlayerMovement : MonoBehaviour
     private int enemyLayer;
 
     private Transform aimPivot;
+    private LevelExit cachedExit;
 
     /// <summary>Last non-zero movement direction (8-way, normalized).</summary>
     public Vector2 AimDirection => aimDirection;
@@ -111,14 +112,10 @@ public class PlayerMovement : MonoBehaviour
             return;
 
         //For Levels block dashing if player has reached the exit
-        LevelExit exit = FindFirstObjectByType<LevelExit>();
-        if (exit != null)
-        {
-            bool done = exit.GetLevelDone();
-            if (done) {
-                return;
-            }
-        }
+        if (cachedExit == null)
+            cachedExit = FindAnyObjectByType<LevelExit>();
+        if (cachedExit != null && cachedExit.GetLevelDone())
+            return;
 
         if (Input.GetKeyDown(KeyCode.LeftShift) && dashCooldownTimer <= 0f)
         {
@@ -164,12 +161,12 @@ public class PlayerMovement : MonoBehaviour
         if (dashTimer > 0f) {
             rb.linearVelocity = dashDirection * dashSpeed;
         } else {
-            LevelExit exit = FindFirstObjectByType<LevelExit>();
-            if (exit != null)
+            if (cachedExit == null)
+                cachedExit = FindAnyObjectByType<LevelExit>();
+            if (cachedExit != null && cachedExit.GetLevelDone())
             {
-                bool done = exit.GetLevelDone();
-                rb.linearVelocity = moveInput * 0;
-                if (done) return;
+                rb.linearVelocity = Vector2.zero;
+                return;
             }
             rb.linearVelocity = moveInput * moveSpeed;
         }
