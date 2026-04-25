@@ -69,7 +69,7 @@ public class EnemyHealth : MonoBehaviour
         damageTypesUsed.Add(lastDamageMethod);
 
         int finalDmg = dmg;
-        if (damageMethod == RunKillAnalytics.DamageMethodSlash)
+        if (lastDamageMethod == RunKillAnalytics.DamageMethodSlash)
             finalDmg = Mathf.Max(1, Mathf.RoundToInt(dmg * slashDamageMultiplier));
         currentHealth -= finalDmg;
         if (currentHealth < 0) currentHealth = 0;
