@@ -20,6 +20,8 @@ public class SkitterAI : MonoBehaviour
     public GameObject bulletPrefab;
     public float shootInterval = 3f;
     public float shootRange = 12f;
+    public float closeShootRange = 5f;
+    public float closeShootInterval = 0.8f;
 
     [Header("Light Reaction")]
     public float lightDetectRadius = 5f;
@@ -154,12 +156,14 @@ public class SkitterAI : MonoBehaviour
                 transform.rotation, Quaternion.Euler(0f, 0f, angle), 10f * Time.deltaTime);
         }
 
+        float distToPlayer = Vector2.Distance(transform.position, player.position);
+        float currentShootInterval = distToPlayer <= closeShootRange ? closeShootInterval : shootInterval;
+
         shootTimer -= Time.deltaTime;
-        if (shootTimer <= 0f &&
-            Vector2.Distance(transform.position, player.position) <= shootRange)
+        if (shootTimer <= 0f && distToPlayer <= shootRange)
         {
             Shoot();
-            shootTimer = shootInterval;
+            shootTimer = currentShootInterval;
         }
     }
 
