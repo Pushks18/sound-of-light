@@ -5,6 +5,11 @@ using System.Collections;
 [RequireComponent(typeof(Rigidbody2D))]
 public class SkitterAI : MonoBehaviour
 {
+    [Header("Shape")]
+    [SerializeField] private float triTipY  =  1.1f;
+    [SerializeField] private float triBaseX =  0.9f;
+    [SerializeField] private float triBaseY = -0.9f;
+
     [Header("Movement")]
     public float moveSpeed = 3f;
     public float panicSpeed = 6f;
@@ -29,11 +34,6 @@ public class SkitterAI : MonoBehaviour
     private bool activated;
     private Light2D bodyLight;
     [HideInInspector] public MeshRenderer meshRend;
-
-    // Triangle vertex constants — bigger shape
-    private const float TriTipY   =  0.75f;
-    private const float TriBaseX  =  0.60f;
-    private const float TriBaseY  = -0.60f;
 
     void Awake()
     {
@@ -69,9 +69,9 @@ public class SkitterAI : MonoBehaviour
         poly.isTrigger = false;
         poly.SetPath(0, new Vector2[]
         {
-            new Vector2(0f,       TriTipY),
-            new Vector2(-TriBaseX, TriBaseY),
-            new Vector2( TriBaseX, TriBaseY)
+            new Vector2(0f,        triTipY),
+            new Vector2(-triBaseX, triBaseY),
+            new Vector2( triBaseX, triBaseY)
         });
 
         var mf = gameObject.AddComponent<MeshFilter>();
@@ -80,12 +80,12 @@ public class SkitterAI : MonoBehaviour
         var mesh = new Mesh { name = "SkitterTriangle" };
         mesh.vertices = new Vector3[]
         {
-            new Vector3(0f,        TriTipY,  0f),
-            new Vector3(-TriBaseX, TriBaseY, 0f),
-            new Vector3( TriBaseX, TriBaseY, 0f)
+            new Vector3(0f,        triTipY,  0f),
+            new Vector3(-triBaseX, triBaseY, 0f),
+            new Vector3( triBaseX, triBaseY, 0f)
         };
         mesh.triangles = new int[] { 0, 2, 1 };
-        mesh.uv = new Vector2[] { new Vector2(0.5f, 1f), new Vector2(0f, 0f), new Vector2(1f, 0f) };
+        mesh.uv = new Vector2[] { new Vector2(2f, 4f), new Vector2(2f, 4f), new Vector2(2f, 4f) };
         mesh.RecalculateNormals();
         mf.mesh = mesh;
 
