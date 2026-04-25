@@ -25,6 +25,7 @@ public class SkitterAI : MonoBehaviour
     public float lightDetectRadius = 5f;
 
     [Header("Detection")]
+    [Tooltip("Activates this enemy when the player walks within this radius, independent of light sources.")]
     public float playerDetectRange = 15f;
 
     [Header("Wall Avoidance")]
