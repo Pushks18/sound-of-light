@@ -5,6 +5,10 @@ using System.Collections.Generic;
 public class EnemyHealth : MonoBehaviour
 {
     public int maxHealth = 2;
+    [Header("Damage Modifiers")]
+    [Tooltip("Multiplier applied to incoming slash damage. 1 = full damage, 0.5 = half damage.")]
+    public float slashDamageMultiplier = 1f;
+
     public GameObject hitGlowPrefab;
     public float healthBarDamageRevealSeconds = 2f;
 
@@ -64,11 +68,14 @@ public class EnemyHealth : MonoBehaviour
 
         damageTypesUsed.Add(lastDamageMethod);
 
-        currentHealth -= dmg;
+        int finalDmg = dmg;
+        if (damageMethod == RunKillAnalytics.DamageMethodSlash)
+            finalDmg = Mathf.Max(1, Mathf.RoundToInt(dmg * slashDamageMultiplier));
+        currentHealth -= finalDmg;
         if (currentHealth < 0) currentHealth = 0;
 
         // Floating damage number above the enemy
-        DamageNumber.Spawn(dmg, transform.position);
+        DamageNumber.Spawn(finalDmg, transform.position);
 
         // Update health bar
         healthBar?.SetFill(currentHealth, maxHealth);
