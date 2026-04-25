@@ -85,7 +85,7 @@ public class SkitterAI : MonoBehaviour
             new Vector3( triBaseX, triBaseY, 0f)
         };
         mesh.triangles = new int[] { 0, 2, 1 };
-        mesh.uv = new Vector2[] { new Vector2(2f, 4f), new Vector2(2f, 4f), new Vector2(2f, 4f) };
+        mesh.uv = new Vector2[] { new Vector2(0.5f, 1f), new Vector2(0f, 0f), new Vector2(1f, 0f) };
         mesh.RecalculateNormals();
         mf.mesh = mesh;
 
