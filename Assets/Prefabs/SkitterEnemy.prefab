@@ -71,18 +71,25 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: a1b2c3d4e5f6789012345678abcdef01, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
+  triTipY: 1.1
+  triBaseX: 0.7
+  triBaseY: -0.7
   moveSpeed: 3
-  panicSpeed: 6
-  fleeRange: 4
-  preferredDistance: 6
+  panicSpeed: 4
+  fleeRange: 2.7
+  preferredDistance: 10
   bulletPrefab: {fileID: 5846314699754637869, guid: 2b22c44cef6c0401eb850a1288759d83, type: 3}
-  shootInterval: 3
+  shootInterval: 2
   shootRange: 12
-  lightDetectRadius: 5
+  closeShootRange: 5
+  closeShootInterval: 0.2
+  lightDetectRadius: 0
+  playerDetectRange: 10
   wallCheckDist: 1.4
   wallRepulsionStrength: 3
+  meshRend: {fileID: 0}
 --- !u!114 &1140001
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -93,9 +100,10 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 62a7684f1717940c6bff7b1928f198ec, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
-  maxHealth: 3
+  m_Name: 
+  m_EditorClassIdentifier: 
+  maxHealth: 4
+  slashDamageMultiplier: 0.1
   hitGlowPrefab: {fileID: 4520355200065602197, guid: 1a9d8339e3c4b4a5eb285329b6c70e4b, type: 3}
   healthBarDamageRevealSeconds: 2
   currentHealth: 0

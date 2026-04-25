@@ -67,8 +67,8 @@ public class ShadowBossAI : MonoBehaviour
     [SerializeField] int   berserkContactDamage = 1;
 
     [Header("Attack — Phase 2 Sweep")]
-    [SerializeField] float sweepWarningDuration = 3.0f;
-    [SerializeField] int   sweepDamageToPlayer  = 3;
+    [SerializeField] float sweepWarningDuration = 2.0f;
+    [SerializeField] int   sweepDamageToPlayer  = 1;
     [SerializeField] float phase2SweepInterval  = 20f;
 
     [Header("Damage")]

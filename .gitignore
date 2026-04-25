@@ -11,6 +11,8 @@
 [Mm]emoryCaptures/
 
 .claude/
+CLAUDE.md
+GEMINI.md
 
 # Rider / VS / VSCode
 .idea/
