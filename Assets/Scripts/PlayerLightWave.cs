@@ -19,7 +19,6 @@ public class PlayerLightWave : MonoBehaviour
 
     private LightEnergy lightEnergy;
     private float idleTimer;
-    private LevelExit cachedExit;
 
     void Start()
     {
@@ -32,10 +31,12 @@ public class PlayerLightWave : MonoBehaviour
         // Skip idle flash if game has ended (portal sequence, death screen)
         bool gameActive = GameManager.Instance == null || !GameManager.Instance.gameEnded;
         //For Levels block if player has reached the exit
-        if (cachedExit == null)
-            cachedExit = FindAnyObjectByType<LevelExit>();
-        if (cachedExit != null && cachedExit.GetLevelDone())
-            return;
+        LevelExit exit = FindFirstObjectByType<LevelExit>();
+        if (exit != null)
+        {
+            bool done = exit.GetLevelDone();
+            if (done) return;
+        }
 
         if (!gameActive || Input.anyKey || Input.GetAxis("Mouse X") != 0f || Input.GetAxis("Mouse Y") != 0f)
         {
@@ -57,10 +58,16 @@ public class PlayerLightWave : MonoBehaviour
                 return;
 
             if (lightEnergy != null && !lightEnergy.CanSpend(energyCost))
+            {
+                Debug.Log("[Flash] Not enough energy!");
                 return;
+            }
 
             if (!PlayerAmmo.Instance.TrySpendFlash())
+            {
+                Debug.Log("[Flash] Blocked (no charges or cooldown)");
                 return;
+            }
 
             lightEnergy?.TrySpend(energyCost);
 

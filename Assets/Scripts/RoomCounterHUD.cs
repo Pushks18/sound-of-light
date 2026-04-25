@@ -104,11 +104,6 @@ public class RoomCounterHUD : MonoBehaviour
         rt.sizeDelta = new Vector2(300f, 50f);
 
         label = labelObj.AddComponent<TextMeshProUGUI>();
-        var font = TMP_Settings.defaultFontAsset;
-        if (font == null)
-            font = Resources.Load<TMP_FontAsset>("Fonts & Materials/LiberationSans SDF");
-        if (font != null)
-            label.font = font;
         label.fontSize = fontSize;
         label.fontStyle = FontStyles.Bold;
         label.alignment = TextAlignmentOptions.Center;

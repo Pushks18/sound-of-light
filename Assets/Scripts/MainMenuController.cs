@@ -27,7 +27,7 @@ public class MainMenuController : MonoBehaviour
 
     public void LoadTutorial()
     {
-        SceneManager.LoadScene("FinalTutorial");
+        SceneManager.LoadScene("NewTut");
     }
 
     public void LoadGame()

@@ -8,7 +8,7 @@ EditorBuildSettings:
   - enabled: 1
     path: Assets/Scenes/MainMenu.unity
     guid: 1747f15b4a86d452b857f9dadcb791eb
-  - enabled: 0
+  - enabled: 1
     path: Assets/Scenes/NewTut.unity
     guid: 05612b257f2244c11b43902f0eb77f7c
   - enabled: 1
@@ -29,35 +29,32 @@ EditorBuildSettings:
   - enabled: 1
     path: Assets/Scenes/VesperScene.unity
     guid: 3a92cd1b800cff143ba4027c8a593b03
-  - enabled: 0
+  - enabled: 1
     path: Assets/Scenes/Level1.unity
     guid: 1df05cefd01254c5abafe6386b9ada24
-  - enabled: 0
+  - enabled: 1
     path: Assets/Scenes/Level2.unity
     guid: 673eaa95bf61249c3bf7f7582511385b
-  - enabled: 0
+  - enabled: 1
     path: Assets/Scenes/Level3.unity
     guid: 444082534b3b34495b5152ed006b00fe
-  - enabled: 0
+  - enabled: 1
     path: Assets/Scenes/Level4.unity
     guid: 6e809c5069f604c00a946f05c4b9ac47
-  - enabled: 0
+  - enabled: 1
     path: Assets/Scenes/Level5.unity
     guid: c5ac78bdf3fa94036a83628b0bd7bd04
-  - enabled: 0
+  - enabled: 1
     path: Assets/Scenes/Level6.unity
     guid: 38fdcd6bbfe154f26b4519476e6ff932
-  - enabled: 0
+  - enabled: 1
     path: Assets/Scenes/Level7.unity
     guid: 655f0a5babf2c4490b0fbd03c88a9663
-  - enabled: 0
+  - enabled: 1
     path: Assets/Scenes/Level8.unity
     guid: 5da0d70dcf8e647338fb8472adb7c945
-  - enabled: 0
+  - enabled: 1
     path: Assets/Scenes/Level9.unity
     guid: db84107fa41e44f4e8307d57391634fe
-  - enabled: 1
-    path: Assets/Scenes/FinalTutorial.unity
-    guid: 3271b878799c14e1b80781d3178283d8
   m_configObjects: {}
   m_UseUCBPForAssetBundles: 0

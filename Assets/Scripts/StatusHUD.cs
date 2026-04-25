@@ -48,7 +48,7 @@ public class StatusHUD : MonoBehaviour
 
     public void UpdateEnemies()
     {
-        enemiesLeft = EnemyRegistry.Count;
+        enemiesLeft = GameObject.FindGameObjectsWithTag("Enemy").Length;
         RefreshEnemy();
     }
 
@@ -82,7 +82,7 @@ public class StatusHUD : MonoBehaviour
 
         Color c = currentHP >= maxHP ? ColGreen : (currentHP > maxHP / 2 ? ColYellow : ColRed);
         string hex = ColorUtility.ToHtmlStringRGB(c);
-        string pips = BuildPips(currentHP, maxHP, "♥", "□");
+        string pips = BuildPips(currentHP, maxHP, "♥", "♡");
 
         hpLabel.text = $"<b>HP</b>  <color=#{hex}>{pips}</color>";
     }

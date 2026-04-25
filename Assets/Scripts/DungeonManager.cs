@@ -67,20 +67,21 @@ public class DungeonManager : MonoBehaviour
     public GameObject enemyPrefab;
     public GameObject trapPrefab;
     public GameObject keyPrefab;
-    public GameObject healthPickupPrefab;
 
     [Header("Boss Room (progressive mode)")]
     [Tooltip("Every N rooms a boss scene is loaded. Set 0 to disable.")]
     public int bossRoomInterval = 5;
-    [Tooltip("Name of the boss scene to load (must be in Build Settings).")]
-    public string bossSceneName = "VesperScene";
+    [Tooltip("Boss scenes loaded in order, cycling. Must be in Build Settings.")]
+    public string[] bossSceneNames = { "VesperScene", "ScarabScene", "GoblinBossScene", "IsshinBossScene" };
     // ─────────────────────────────────────────────────────────────────────
 
     // ── Cross-scene run state (static — survives scene loads) ───────────────
     /// <summary>Set before entering a boss scene so GameManager.BossDefeated knows where to return.</summary>
-    public static bool IsReturningFromBoss  = false;
-    public static int  RoomIndexBeforeBoss  = 0;
-    public static string OriginSceneName    = "";
+    public static bool   IsReturningFromBoss = false;
+    public static int    RoomIndexBeforeBoss = 0;
+    public static string OriginSceneName     = "";
+    // Boss pool: shuffled draw-without-replacement; refills automatically when empty.
+    static readonly System.Collections.Generic.List<string> bossPool = new();
     // ────────────────────────────────────────────────────────────────────────
 
     private bool[,] currentGrid;
@@ -101,7 +102,7 @@ public class DungeonManager : MonoBehaviour
         // Returning from a boss scene — restore room index so the run continues correctly
         if (IsReturningFromBoss)
         {
-            currentRoomIndex   = RoomIndexBeforeBoss;  // next call increments to +1
+            currentRoomIndex    = RoomIndexBeforeBoss;  // next call increments to +1
             _nextRoomIsPostBoss = true;
             IsReturningFromBoss = false;
             RoomIndexBeforeBoss = 0;
@@ -146,12 +147,26 @@ public class DungeonManager : MonoBehaviour
 
         // ── Boss room: heal player then hand off to the dedicated boss scene ──
         bool isBossRoom = progressiveMode
-                          && !string.IsNullOrEmpty(bossSceneName)
+                          && bossSceneNames != null && bossSceneNames.Length > 0
                           && bossRoomInterval > 0
                           && (currentRoomIndex % bossRoomInterval == 0);
 
         if (isBossRoom)
         {
+            // Refill pool when empty
+            if (bossPool.Count == 0)
+            {
+                bossPool.AddRange(bossSceneNames);
+                // Fisher-Yates shuffle
+                for (int i = bossPool.Count - 1; i > 0; i--)
+                {
+                    int j = Random.Range(0, i + 1);
+                    (bossPool[i], bossPool[j]) = (bossPool[j], bossPool[i]);
+                }
+            }
+            string nextBoss = bossPool[bossPool.Count - 1];
+            bossPool.RemoveAt(bossPool.Count - 1);
+
             // Apply normal per-floor heal before leaving (user decision: boss entry = normal heal)
             if (currentRoomIndex > 1)
                 HealPlayer();
@@ -161,7 +176,7 @@ public class DungeonManager : MonoBehaviour
             RoomIndexBeforeBoss = currentRoomIndex;
             OriginSceneName     = SceneManager.GetActiveScene().name;
 
-            SceneManager.LoadScene(bossSceneName);
+            SceneManager.LoadScene(nextBoss);
             yield break;   // stop coroutine — scene is loading
         }
         // ─────────────────────────────────────────────────────────────────────
@@ -233,7 +248,7 @@ public class DungeonManager : MonoBehaviour
         }
 
         currentGrid = chosen.Load();
-        // Debug.Log("Loading room #" + currentRoomIndex + " -> " + chosen.name);
+        Debug.Log("Loading room #" + currentRoomIndex + " -> " + chosen.name);
 
         roomBuilder.BuildFromGrid(currentGrid, chosen.width, chosen.height);
         PlaceDoors(chosen.width, chosen.height);
@@ -247,7 +262,7 @@ public class DungeonManager : MonoBehaviour
         int w = Mathf.Min(startWidth + widthGrowth * (room - 1), maxWidth);
         int h = Mathf.Min(startHeight + heightGrowth * (room - 1), maxHeight);
 
-        // Debug.Log($"Progressive room #{room}: {w}x{h}");
+        Debug.Log($"Progressive room #{room}: {w}x{h}");
 
         currentGrid = GenerateGrid(w, h);
         roomBuilder.BuildFromGrid(currentGrid, w, h);
@@ -403,60 +418,8 @@ public class DungeonManager : MonoBehaviour
             }
         }
 
-        // --- Spawn health pickup (one per room, only if player is hurt) ---
-        SpawnHealthPickup(validCells, playerPos, enemyPositions, player);
-
+        Debug.Log($"Spawned {enemiesSpawned} enemies, {trapsSpawned} traps");
         return enemiesSpawned;
-    }
-
-    void SpawnHealthPickup(List<Vector2Int> validCells, Vector2 playerPos,
-                            List<Vector3> enemyPositions, GameObject player)
-    {
-        var hp = player.GetComponent<PlayerHealth>();
-        if (hp == null) return;
-
-        // Only spawn if player is missing at least 2 HP (less than maxHP - 1)
-        if (hp.currentHealth >= hp.maxHealth - 1) return;
-
-        float minDistSq = minDistBetweenEnemies * minDistBetweenEnemies;
-
-        foreach (var cell in validCells)
-        {
-            Vector3 pos = roomBuilder.CellToWorld(cell);
-
-            // Keep away from player spawn area
-            if (Vector2.Distance(pos, playerPos) < spawnFlashRadius) continue;
-
-            // Keep away from enemies
-            bool tooClose = false;
-            foreach (var ep in enemyPositions)
-            {
-                if (((Vector2)(pos - ep)).sqrMagnitude < minDistSq)
-                { tooClose = true; break; }
-            }
-            if (tooClose) continue;
-
-            if (healthPickupPrefab != null)
-            {
-                Instantiate(healthPickupPrefab, pos, Quaternion.identity);
-            }
-            else
-            {
-                // Fallback: create from code if no prefab is wired
-                var pickupObj = new GameObject("HealthPickup");
-                pickupObj.transform.position = pos;
-
-                var sr = pickupObj.AddComponent<SpriteRenderer>();
-                sr.color = new Color(0.2f, 0.9f, 0.3f, 1f);
-
-                var col = pickupObj.AddComponent<BoxCollider2D>();
-                col.isTrigger = true;
-                col.size = Vector2.one;
-
-                pickupObj.AddComponent<HealthPickup>();
-            }
-            break; // only one per room
-        }
     }
 
     void EmitSpawnFlash()
@@ -499,7 +462,7 @@ public class DungeonManager : MonoBehaviour
         int heal = Mathf.Max(healPerFloor - healDecay * (currentRoomIndex - 2), minHeal);
         hp.currentHealth = Mathf.Min(hp.currentHealth + heal, hp.maxHealth);
         StatusHUD.Instance?.UpdateHP(hp.currentHealth, hp.maxHealth);
-        // Debug.Log($"Healed {heal} HP (now {hp.currentHealth}/{hp.maxHealth})");
+        Debug.Log($"Healed {heal} HP (now {hp.currentHealth}/{hp.maxHealth})");
     }
 
     void HealPostBoss()
@@ -512,7 +475,7 @@ public class DungeonManager : MonoBehaviour
 
         hp.currentHealth = Mathf.Min(hp.currentHealth + 2, hp.maxHealth);
         StatusHUD.Instance?.UpdateHP(hp.currentHealth, hp.maxHealth);
-        // Debug.Log($"Post-boss heal: +2 HP (now {hp.currentHealth}/{hp.maxHealth})");
+        Debug.Log($"Post-boss heal: +2 HP (now {hp.currentHealth}/{hp.maxHealth})");
     }
 
     // ── Shared helpers ──────────────────────────────────────────────────
@@ -674,8 +637,6 @@ public class DungeonManager : MonoBehaviour
             Destroy(t.gameObject);
         foreach (var k in FindObjectsByType<Key>(FindObjectsSortMode.None))
             Destroy(k.gameObject);
-        foreach (var h in FindObjectsByType<HealthPickup>(FindObjectsSortMode.None))
-            Destroy(h.gameObject);
     }
 
     class DoorCandidate

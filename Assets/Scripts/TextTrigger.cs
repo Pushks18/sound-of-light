@@ -3,11 +3,8 @@ using UnityEngine;
 public class TextTrigger : MonoBehaviour
 {
     public string textMessage;
-    [SerializeField] private int textNumber;
-    [SerializeField] private KeyCode[] dismissKeys;
 
     [SerializeField] private TextCanvas textCanvas;
-
     private bool hasTriggered = false;
     private Collider2D triggerCollider;
 
@@ -33,7 +30,7 @@ public class TextTrigger : MonoBehaviour
 
         if (textCanvas != null)
         {
-            textCanvas.ShowTriggerText(textMessage, textNumber, dismissKeys);
+            textCanvas.ShowTriggerText(textMessage, 5f);
         }
     }
 }

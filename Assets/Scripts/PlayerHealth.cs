@@ -29,7 +29,6 @@ public class PlayerHealth : MonoBehaviour
     public float knockbackForce = 15f;
 
     private Rigidbody2D rb;
-    private LevelExit cachedExit;
 
     void Awake()
     {
@@ -77,10 +76,12 @@ public class PlayerHealth : MonoBehaviour
         if (isDead || iFrameTimer > 0f) return;
         if (GameManager.Instance != null && GameManager.Instance.gameEnded) return;
         //For Levels block if player has reached the exit
-        if (cachedExit == null)
-            cachedExit = FindAnyObjectByType<LevelExit>();
-        if (cachedExit != null && cachedExit.GetLevelDone())
-            return;
+        LevelExit exit = FindFirstObjectByType<LevelExit>();
+        if (exit != null)
+        {
+            bool done = exit.GetLevelDone();
+            if (done) return;
+        }
 
         //if dashing don't take damage
         PlayerMovement pm = GetComponent<PlayerMovement>();

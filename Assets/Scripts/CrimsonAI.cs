@@ -509,6 +509,10 @@ public class CrimsonAI : MonoBehaviour
         }
 
         yield return new WaitForSeconds(0.4f);
+
+        if (bossIntroCam != null && playerTransform != null)
+            yield return StartCoroutine(bossIntroCam.PanBackToPlayer(playerTransform));
+
         GameManager.Instance?.BossDefeated();
         Destroy(gameObject);
     }

@@ -676,13 +676,7 @@ PlayerSettings:
   XboxOneOverrideIdentityName: 
   XboxOneOverrideIdentityPublisher: 
   vrEditorSettings: {}
-  cloudServicesEnabled:
-    Build: 0
-    Game Performance: 0
-    Legacy Analytics: 0
-    Purchasing: 0
-    UDP: 0
-    Unity Ads: 0
+  cloudServicesEnabled: {}
   luminIcon:
     m_Name: 
     m_ModelFolderPath: 
@@ -704,11 +698,11 @@ PlayerSettings:
   captureStartupLogs: {}
   activeInputHandler: 0
   windowsGamepadBackendHint: 0
-  cloudProjectId: f1e8cde1-1094-4b93-b314-c91a3d9e7179
+  cloudProjectId: b07e9e6d-7ae1-49ba-8191-95ba588ade88
   framebufferDepthMemorylessMode: 0
   qualitySettingsNames: []
-  projectName: Sound of Sight
-  organizationId: dragonlover24
+  projectName: My project 2026-02-08_18-41-30
+  organizationId: yunzhel
   cloudEnabled: 0
   legacyClampBlendShapeWeights: 0
   hmiLoadingImage: {fileID: 0}

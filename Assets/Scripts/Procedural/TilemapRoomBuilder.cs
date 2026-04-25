@@ -31,7 +31,7 @@ public class TilemapRoomBuilder : MonoBehaviour
 
     [Header("Colors")]
     [Tooltip("Base color for floor tiles. Alpha is preserved from the tile sprite.")]
-    public Color floorBaseColor; // warm stone
+    public Color floorBaseColor  = new Color(0.72f, 0.68f, 0.60f); // warm stone
     [Tooltip("Base color for wall tiles — usually much darker than the floor.")]
     public Color wallBaseColor   = new Color(0.18f, 0.16f, 0.14f); // near-black
     [Tooltip("Perlin noise scale — larger values = coarser variation across the cave.")]
@@ -106,7 +106,7 @@ public class TilemapRoomBuilder : MonoBehaviour
             ? new Vector3(centreSum.x / floorCount, centreSum.y / floorCount, 0f)
             : Vector3.zero;
 
-        // Debug.Log($"[TilemapRoomBuilder] Built {floorCount} floor cells. Centre ≈ {FloorCentre}");
+        Debug.Log($"[TilemapRoomBuilder] Built {floorCount} floor cells. Centre ≈ {FloorCentre}");
     }
 
     public void SetDoorCell(Vector2Int cell)
@@ -126,17 +126,6 @@ public class TilemapRoomBuilder : MonoBehaviour
     {
         var cell = new Vector3Int(x, y, 0);
         return floorTilemap.HasTile(cell);
-    }
-
-    /// <summary>
-    /// Returns true when (x,y) AND all 4 cardinal neighbours are floor.
-    /// Use for enemy pathfinding so wide colliders don't clip wall corners.
-    /// </summary>
-    public bool IsFloorPadded(int x, int y)
-    {
-        return IsFloor(x, y)
-            && IsFloor(x - 1, y) && IsFloor(x + 1, y)
-            && IsFloor(x, y - 1) && IsFloor(x, y + 1);
     }
 
     /// <summary>

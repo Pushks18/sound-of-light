@@ -29,7 +29,6 @@ public class PlayerDash : MonoBehaviour
     private float shadowSpawnTimer;
     private HashSet<int> hitEnemiesThisDash;
     private Vector3 lastDashPos;
-    private VesperAI cachedVesper;
 
     void Start()
     {
@@ -137,20 +136,22 @@ public class PlayerDash : MonoBehaviour
         Vector2 currentPos = transform.position;
         Vector2 prevPos = lastDashPos;
 
-        // Check all enemies via registry (no scene scan)
-        var enemies = EnemyRegistry.AllHealth;
-        for (int i = 0; i < enemies.Count; i++)
+        // Check all enemies by direct distance (bypasses layer/physics issues)
+        var enemies = FindObjectsByType<EnemyHealth>(FindObjectsSortMode.None);
+        foreach (var enemy in enemies)
         {
-            var enemy = enemies[i];
             if (enemy == null) continue;
             int id = enemy.gameObject.GetInstanceID();
             if (hitEnemiesThisDash.Contains(id)) continue;
 
             Vector2 enemyPos = enemy.transform.position;
 
+            // Check distance to current position OR closest point on dash path
             float dist = DistToSegment(enemyPos, prevPos, currentPos);
+            Debug.Log($"[Dash] Enemy {enemy.name} dist={dist:F2}, radius={contactRadius}");
             if (dist <= contactRadius)
             {
+                Debug.Log($"[Dash] HIT {enemy.name} for {contactDamage} damage!");
                 hitEnemiesThisDash.Add(id);
                 enemy.TakeDamage(contactDamage, RunKillAnalytics.DamageMethodDash);
 
@@ -159,29 +160,27 @@ public class PlayerDash : MonoBehaviour
             }
         }
 
-        // Check Vesper boss (cached, re-find only when null)
-        if (cachedVesper == null)
-            cachedVesper = FindAnyObjectByType<VesperAI>();
-        if (cachedVesper != null)
+        // Check Vesper boss by direct distance (VesperAI is not EnemyHealth)
+        var vesper = FindFirstObjectByType<VesperAI>();
+        if (vesper != null)
         {
-            int vid = cachedVesper.gameObject.GetInstanceID();
+            int vid = vesper.gameObject.GetInstanceID();
             if (!hitEnemiesThisDash.Contains(vid))
             {
-                float dist = DistToSegment(cachedVesper.transform.position, prevPos, currentPos);
+                float dist = DistToSegment(vesper.transform.position, prevPos, currentPos);
                 if (dist <= contactRadius)
                 {
                     hitEnemiesThisDash.Add(vid);
-                    cachedVesper.TakeDashDamage(1);
+                    vesper.TakeDashDamage(1);
                 }
             }
         }
 
-        // Check enemy bullets via static list (no scene scan)
-        var bullets = Bullet.EnemyBullets;
-        for (int i = bullets.Count - 1; i >= 0; i--)
+        // Check all enemy bullets by direct distance
+        var bullets = FindObjectsByType<Bullet>(FindObjectsSortMode.None);
+        foreach (var bullet in bullets)
         {
-            var bullet = bullets[i];
-            if (bullet == null) continue;
+            if (bullet == null || !bullet.CompareTag("EnemyBullet")) continue;
 
             Vector2 bulletPos = bullet.transform.position;
             float dist = DistToSegment(bulletPos, prevPos, currentPos);

@@ -24,13 +24,13 @@ public class PlayerAmmo : MonoBehaviour
     private static readonly Color ColKey = new Color(1f, 0.85f, 0.2f, 1f);
 
     [Header("Ability Cooldowns")]
-    public float bulletCooldown = 0.1f;
+    public float bulletCooldown = 0.5f;
     public float dashCooldown = 1.0f;
     public float flashCooldown = 4.0f;
 
     [Header("Bullet Regen")]
-    public float bulletRegenDelay = 1.5f;
-    public float bulletRegenInterval = 0.12f;
+    public float bulletRegenDelay = 5f;
+    public float bulletRegenInterval = 0.5f;
 
     [Header("Dash Regen")]
     public float dashRegenDelay = 8f;
@@ -52,15 +52,6 @@ public class PlayerAmmo : MonoBehaviour
     private float dashRegenAccum;
     private float flashRegenAccum;
 
-    // HUD dirty-flag tracking — skip string formatting when nothing changed
-    private int prevBullets, prevDashes, prevFlashes;
-    private bool prevHadCooldown;
-
-    // Cached color hex strings (never change)
-    private static string hexKey;
-    private static string hexAvailable;
-    private static string hexEmpty;
-
     void Awake()
     {
         if (Instance != null && Instance != this) { Destroy(gameObject); return; }
@@ -69,13 +60,6 @@ public class PlayerAmmo : MonoBehaviour
         Bullets = maxBullets;
         Dashes = maxDashes;
         Flashes = maxFlashes;
-
-        if (hexKey == null)
-        {
-            hexKey = ColorUtility.ToHtmlStringRGB(ColKey);
-            hexAvailable = ColorUtility.ToHtmlStringRGB(ColAvailable);
-            hexEmpty = ColorUtility.ToHtmlStringRGB(ColEmpty);
-        }
     }
 
     void Start()
@@ -121,17 +105,7 @@ public class PlayerAmmo : MonoBehaviour
             }
         }
 
-        // Only rebuild HUD strings when values actually changed or cooldown is ticking
-        bool hasCooldown = Time.time < nextBulletUseTime || Time.time < nextDashUseTime || Time.time < nextFlashUseTime;
-        if (Bullets != prevBullets || Dashes != prevDashes || Flashes != prevFlashes
-            || hasCooldown || prevHadCooldown)
-        {
-            RefreshHUD();
-            prevBullets = Bullets;
-            prevDashes = Dashes;
-            prevFlashes = Flashes;
-            prevHadCooldown = hasCooldown;
-        }
+        RefreshHUD();
     }
 
     public bool TrySpendBullet()
@@ -225,16 +199,19 @@ public class PlayerAmmo : MonoBehaviour
 
     string FormatRow(string label, int current, int max, float cooldownRemaining)
     {
+        string keyHex = ColorUtility.ToHtmlStringRGB(ColKey);
+
         if (cooldownRemaining > 0f)
         {
             string time = cooldownRemaining.ToString("0.00");
-            return $"<color=#FFFFFF>{time}</color> <color=#{hexKey}>{label}</color> ";
+            return $"<color=#FFFFFF>{time}</color> <color=#{keyHex}>{label}</color> ";
         }
 
-        string hex = current > 0 ? hexAvailable : hexEmpty;
+        Color c = current > 0 ? ColAvailable : ColEmpty;
+        string hex = ColorUtility.ToHtmlStringRGB(c);
         string pips = BuildPips(current, max);
 
-        return $"<color=#{hex}>{pips}</color> <color=#{hexKey}>{label}</color>  ";
+        return $"<color=#{hex}>{pips}</color> <color=#{keyHex}>{label}</color>  ";
     }
 
     string BuildPips(int current, int max)

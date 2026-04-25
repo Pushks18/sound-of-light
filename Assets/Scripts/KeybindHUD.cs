@@ -63,7 +63,6 @@ public class KeybindHUD : MonoBehaviour
         textGO.transform.SetParent(panelGO.transform, false);
 
         var tmp = textGO.AddComponent<TextMeshProUGUI>();
-        tmp.font = GetDefaultFont();
         tmp.raycastTarget = false;
         tmp.alignment     = TextAlignmentOptions.Center;
         tmp.fontSize      = FontSize;
@@ -86,14 +85,7 @@ public class KeybindHUD : MonoBehaviour
         textRT.offsetMax        = new Vector2(-8f, 0f);
     }
 
-    static TMP_FontAsset GetDefaultFont()
-    {
-        var font = TMP_Settings.defaultFontAsset;
-        if (font == null)
-            font = Resources.Load<TMP_FontAsset>("Fonts & Materials/LiberationSans SDF");
-        return font;
-    }
-
+    // Converts a Color to a 6-char hex string for TMP rich text
     static string ColorToHex(Color c)
     {
         return ColorUtility.ToHtmlStringRGB(c);

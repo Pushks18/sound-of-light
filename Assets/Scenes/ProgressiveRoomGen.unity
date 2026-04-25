@@ -212,7 +212,6 @@ MonoBehaviour:
   enemyPrefab: {fileID: 1660624364064054240, guid: cc69393cf33acc94b905039bfa9b28e9, type: 3}
   trapPrefab: {fileID: 8734501928374650001, guid: fab441304dbe74efda05301866f37865, type: 3}
   keyPrefab: {fileID: 2788963024019888239, guid: 898eb717fa5aa493388ed28daed49fbe, type: 3}
-  healthPickupPrefab: {fileID: 6734501928374650001, guid: d5e6f7a8b901234567890123456bcdef, type: 3}
   bossRoomInterval: 5
   bossSceneName: VesperScene
 --- !u!4 &207522363
@@ -1252,9 +1251,9 @@ MonoBehaviour:
   slashDamage: 2
   cooldown: 0.15
   lightIntensity: 1.5
-  lightColor: {r: 0.69803923, g: 0.8, b: 1, a: 1}
-  arcColor: {r: 0.6981132, g: 0.8, b: 1, a: 0.5}
-  arcEdgeColor: {r: 0.8632076, g: 0.9093972, b: 1, a: 0.8}
+  lightColor: {r: 1, g: 0.9, b: 0.6, a: 1}
+  arcColor: {r: 1, g: 0.9, b: 0.4, a: 0.5}
+  arcEdgeColor: {r: 1, g: 1, b: 0.8, a: 0.8}
   disableSlashOnLevel: 0
 --- !u!114 &900000103
 MonoBehaviour:
@@ -1294,7 +1293,7 @@ MonoBehaviour:
   waveIntensity: 2.5
   waveDuration: 5
   energyCost: 10
-  waveColor: {r: 0.69803923, g: 0.8, b: 1, a: 1}
+  waveColor: {r: 1, g: 0.95, b: 0.8, a: 1}
   idleFlashDelay: 4
   idleFlashRadiusMult: 0.6
   idleFlashIntensityMult: 0.5
@@ -1331,11 +1330,11 @@ MonoBehaviour:
   bulletLabel: {fileID: 0}
   dashLabel: {fileID: 0}
   flashLabel: {fileID: 0}
-  bulletCooldown: 0.1
+  bulletCooldown: 0.3
   dashCooldown: 1
   flashCooldown: 4
-  bulletRegenDelay: 1.5
-  bulletRegenInterval: 0.12
+  bulletRegenDelay: 5
+  bulletRegenInterval: 0.5
   dashRegenDelay: 8
   dashRegenInterval: 2
   flashRegenDelay: 8
@@ -2185,10 +2184,10 @@ MonoBehaviour:
   doorTilemap: {fileID: 282490923}
   width: 0
   height: 0
-  floorTile: {fileID: 11400000, guid: 3fad9c4ce789643aab5172b1dee809a5, type: 2}
+  floorTile: {fileID: 11400000, guid: 67015b045095e4c8f8d864a06d14cae8, type: 2}
   wallTile: {fileID: 11400000, guid: 70977cd573ecc4ad18ba368e544bc3fa, type: 2}
   doorTile: {fileID: 11400000, guid: 6778e0447036d4dfc838097a7243fa55, type: 2}
-  floorBaseColor: {r: 0.35686275, g: 0.35686275, b: 0.35686275, a: 1}
+  floorBaseColor: {r: 1, g: 0.43618035, b: 0, a: 1}
   wallBaseColor: {r: 0.18, g: 0.16, b: 0.14, a: 1}
   noiseScale: 0.12
   noiseStrength: 0.25

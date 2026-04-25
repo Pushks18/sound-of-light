@@ -41,7 +41,8 @@ public class ScarabAI : MonoBehaviour
     [SerializeField] float chargeWarningWidthScale = 0.7f;  // fraction of wingspan to use
     [SerializeField] float chargeTurnDuration = 1.8f;   // how long boss turns back to player after afterlag
     [SerializeField] float chargeWindup   = 0.8f;
-    [SerializeField] float chargeSpeed              = 18f;
+    [SerializeField] float chargeHoldAfterWindup = 0.2f;
+    [SerializeField] float chargeSpeed              = 22f;
     [SerializeField] float chargeSpeedDistanceFactor = 0.5f; // extra speed per unit of distance
     [SerializeField] float chargeDistance = 20f;
     [SerializeField] float chargeCD       = 4f;
@@ -52,7 +53,6 @@ public class ScarabAI : MonoBehaviour
     [Header("Phase 2 Transition")]
     [SerializeField] float p2ShockwaveRadius      = 34f;
     [SerializeField] float p2ShockwaveDuration    = 0.5f;
-    [SerializeField] float p2LandingLightRadius   = 12f;
     [SerializeField] float p2KnockbackDistance    = 4f;
     [SerializeField] float p2KnockbackTime        = 0.2f;
     [SerializeField] float p2LandingDelay         = 1.5f;
@@ -60,6 +60,7 @@ public class ScarabAI : MonoBehaviour
     [Header("Phase 2")]
     [SerializeField] float p2FlightHeight          = 4f;
     [SerializeField] float p2DiveSpeed             = 30f;
+    [SerializeField] float diveTimeBuffer          = 0.3f;
     [SerializeField] float phase2AfterlagDuration  = 3f;
     [SerializeField] float phase2WallStunDuration  = 3f;
     [SerializeField] float phase2WallShake         = 0.4f;
@@ -79,8 +80,6 @@ public class ScarabAI : MonoBehaviour
     [Header("Lights")]
     [SerializeField] float weakPointIntensity    = 2f;
     [SerializeField] float headFlashIntensity    = 3f;
-    [SerializeField] float empoweredHeadIntensity = 4f;
-    [SerializeField] float introBodyIntensity    = 2f;
 
     [Header("Screen Shake")]
     [SerializeField] float screenShakeNormal    = 0.3f;
@@ -118,7 +117,6 @@ public class ScarabAI : MonoBehaviour
     [SerializeField] float wingMinAlpha    = 0.05f; // fully folded alpha
 
     [Header("References")]
-    [SerializeField] Light2D      bodyLight;
     [SerializeField] Light2D      headLight;
     [SerializeField] Light2D      backLight;
     [SerializeField] BossHealthBar healthBar;
@@ -164,6 +162,7 @@ public class ScarabAI : MonoBehaviour
     bool  knockbackActive        = false;
     bool  isWallStunned          = false;
     int   wallStunSlashHits      = 0;
+    int   wallStunDamageTotal    = 0;
     float playerInvincibleTimer  = 0f;
 
     Rigidbody2D    rb;
@@ -178,7 +177,6 @@ public class ScarabAI : MonoBehaviour
     Coroutine blinkRoutine;
     Coroutine wingCoroutine;
     Coroutine armorKnockbackRoutine;
-    Coroutine headFlickerRoutine;
     bool      wingsActive    = false;   // true while wings should be flapping
 
     // ── Lifecycle ────────────────────────────────────────────────────────────
@@ -192,7 +190,7 @@ public class ScarabAI : MonoBehaviour
         foreach (var r in GetComponentsInChildren<SpriteRenderer>())
             r.sortingOrder = 10;
 
-        if (bodyLight != null) bodyLight.intensity = 0f;
+
         if (headLight != null) headLight.intensity = 0f;
         if (backLight != null) backLight.intensity = 0f;
     }
@@ -460,8 +458,6 @@ public class ScarabAI : MonoBehaviour
         if (state != ScarabState.Dormant) return;
         state = ScarabState.InBattle;
 
-        if (bodyLight != null) bodyLight.intensity = 1f;
-
         if (healthBar != null)
         {
             healthBar.Initialize(maxHealth);
@@ -557,7 +553,7 @@ public class ScarabAI : MonoBehaviour
         }
         // Hold at full for 0.5s so player can react — direction locked
         float holdElapsed = 0f;
-        while (holdElapsed < 0.5f)
+        while (holdElapsed < chargeHoldAfterWindup)
         {
             holdElapsed += Time.deltaTime;
             UpdateWarningRect(warn, transform.position, chargeDir, dynDist, 1f);
@@ -588,7 +584,7 @@ public class ScarabAI : MonoBehaviour
         Vector2 groundPos  = transform.position;
         Vector2 apexPos    = ClampToRoom(groundPos + Vector2.up * p2FlightHeight);
 
-        if (headLight != null) headLight.intensity = 0f;
+
 
         float liftElapsed = 0f;
         while (liftElapsed < jumpWindup)
@@ -614,7 +610,7 @@ public class ScarabAI : MonoBehaviour
             ? (diveTarget - apexPos).normalized : Vector2.down;
 
         float totalDist        = Vector2.Distance(apexPos, diveTarget);
-        float estimatedDiveDur = totalDist / p2DiveSpeed + 0.6f;
+        float estimatedDiveDur = totalDist / p2DiveSpeed + diveTimeBuffer;
 
         StartCoroutine(P2LandingWarning(diveTarget, GetWarnWidth() * 0.5f, estimatedDiveDur));
 
@@ -632,7 +628,7 @@ public class ScarabAI : MonoBehaviour
         transform.localScale = baseScale;
         isAirborne           = false;
         if (rb != null) rb.linearVelocity = Vector2.zero;
-        if (headLight != null) headLight.intensity = 0f;
+
 
         // ── Impact ────────────────────────────────────────────────────────
         CameraShake.Instance?.Shake(screenShakeNormal, screenShakeNormal);
@@ -684,7 +680,6 @@ public class ScarabAI : MonoBehaviour
 
         Vector2    chargeDir = facingDir;
         StartWingFlap(wingChargeFlapSpeed);
-        headFlickerRoutine = StartCoroutine(HeadOrangeFlicker());
         float wallDist = DistanceToWall(transform.position, chargeDir);
         GameObject warn = CreateWarningRect(chargeDir, wallDist, new Color(1f, 0.1f, 0.1f));
         float elapsed = 0f;
@@ -699,7 +694,7 @@ public class ScarabAI : MonoBehaviour
             yield return null;
         }
         float holdElapsed = 0f;
-        while (holdElapsed < 0.5f)
+        while (holdElapsed < chargeHoldAfterWindup)
         {
             holdElapsed += Time.deltaTime;
             UpdateWarningRect(warn, transform.position, chargeDir, wallDist, 1f);
@@ -709,7 +704,6 @@ public class ScarabAI : MonoBehaviour
         float dynSpeed = chargeSpeed + wallDist * chargeSpeedDistanceFactor;
         yield return StartCoroutine(ExecuteChargeUntilWall(chargeDir, dynSpeed, 100f,
             stunDuration: phase2WallStunDuration, shake: phase2WallShake));
-        StopHeadFlicker();
         StopWingFlap();
     }
 
@@ -720,8 +714,6 @@ public class ScarabAI : MonoBehaviour
         playerDashedDuringStun = false;
         DisablePlayerInput();
 
-        // Visual: head spikes, health bar shakes
-        if (headLight != null) headLight.intensity = empoweredHeadIntensity;
         if (healthBar != null) healthBar.Shake(playerStunDuration, 14f);
 
         // Orange THICK warning line (width 0.8) pointing toward player
@@ -744,7 +736,7 @@ public class ScarabAI : MonoBehaviour
         }
 
         DestroyWarningRect(warn);
-        if (headLight != null) headLight.intensity = 0f;
+
 
         // Stun ends
         bool playerDodged      = playerDashedDuringStun;
@@ -892,6 +884,7 @@ public class ScarabAI : MonoBehaviour
         backWeakPointActive  = true;
         isWallStunned        = true;
         wallStunSlashHits    = 0;
+        wallStunDamageTotal  = 0;
 
         // Wings static at max alpha during stun
         StopWingFlap();
@@ -902,18 +895,23 @@ public class ScarabAI : MonoBehaviour
         yield return StartCoroutine(FadeLight(backLight,
             backLight != null ? backLight.intensity : 0f, wallWeakIntensity, 0.15f));
 
-        // Wait for duration OR 2 slash hits, whichever comes first
-        float stunElapsed = 0f;
-        while (stunElapsed < stunDur && wallStunSlashHits < 2)
+        float stunElapsed  = 0f;
+        float flickerPhase = 0f;
+        while (stunElapsed < stunDur && wallStunSlashHits < 3 && wallStunDamageTotal < 8)
         {
-            stunElapsed += Time.deltaTime;
+            stunElapsed  += Time.deltaTime;
+            flickerPhase += Time.deltaTime * 1f * Mathf.PI * 2f;
+            float flickerT = (Mathf.Sin(flickerPhase) + 1f) * 0.5f;
+            if (backLight != null) backLight.intensity = Mathf.Lerp(wallWeakIntensity * 0.35f, wallWeakIntensity, flickerT);
             yield return null;
         }
 
         isWallStunned       = false;
         backWeakPointActive = false;
         SetWingAlpha(0f);
-        yield return StartCoroutine(FadeLight(backLight, wallWeakIntensity, 0f, 0.2f));
+        float endIntensity  = backLight != null ? backLight.intensity : 0f;
+        yield return StartCoroutine(FadeLight(backLight, endIntensity, 0f, 0.2f));
+        if (backLight != null) backLight.intensity = 0f;
     }
 
     IEnumerator SmoothTurn(float duration)
@@ -935,17 +933,27 @@ public class ScarabAI : MonoBehaviour
 
     IEnumerator AfterlagSequence(float duration, Vector2 chargeDir)
     {
-        // Keep facing charge direction — player must go around to hit weak point
-
-        // Weak point activates
         backWeakPointActive = true;
+        isWallStunned       = true;
+        wallStunSlashHits   = 0;
         yield return StartCoroutine(FadeLight(backLight, 0f, weakPointIntensity, 0.25f));
 
-        yield return new WaitForSeconds(duration);
+        float elapsed      = 0f;
+        float flickerPhase = 0f;
+        while (elapsed < duration && wallStunSlashHits < 4)
+        {
+            elapsed      += Time.deltaTime;
+            flickerPhase += Time.deltaTime * 1f * Mathf.PI * 2f;
+            float flickerT = (Mathf.Sin(flickerPhase) + 1f) * 0.5f;
+            if (backLight  != null) backLight.intensity  = Mathf.Lerp(weakPointIntensity * 0.35f, weakPointIntensity, flickerT);
+            yield return null;
+        }
 
-        // Weak point deactivates
+        isWallStunned       = false;
         backWeakPointActive = false;
-        yield return StartCoroutine(FadeLight(backLight, weakPointIntensity, 0f, 0.25f));
+        float endIntensity  = backLight != null ? backLight.intensity : 0f;
+        yield return StartCoroutine(FadeLight(backLight, endIntensity, 0f, 0.25f));
+        if (backLight != null) backLight.intensity = 0f;
     }
 
     // ── Trigger Callbacks ────────────────────────────────────────────────────
@@ -965,10 +973,9 @@ public class ScarabAI : MonoBehaviour
             SpawnFloatingText("-0", transform.position, new Color(0.6f, 0.6f, 0.6f));
             return;
         }
-        // Slash: record armor hit — resolved together with body in LateUpdate
+        // Slash: wing hit always wins — overrides body damage if both hit same frame
         if (!InitSlashFrame(other.gameObject.GetInstanceID())) return;
-        if (pendingSlash == SlashResult.None)
-            pendingSlash = SlashResult.Armor;
+        pendingSlash = SlashResult.Armor;
     }
 
     void HandlePartHit(Collider2D other)
@@ -1052,7 +1059,7 @@ public class ScarabAI : MonoBehaviour
         if (!InitSlashFrame(slashCol.gameObject.GetInstanceID())) return;
         if (pendingSlash == SlashResult.Damage) return;
 
-        if (!IsPlayerInFront() && backWeakPointActive)
+        if (!IsPlayerInFront() && backWeakPointActive && pendingSlash == SlashResult.None)
         {
             pendingSlash    = SlashResult.Damage;
             pendingSlashDmg = 2;
@@ -1088,7 +1095,7 @@ public class ScarabAI : MonoBehaviour
     {
         if (pendingSlash == SlashResult.Damage)
         {
-            ApplyDamage(pendingSlashDmg);
+            ApplyDamage(pendingSlashDmg, fromSlash: true);
         }
         else if (armorKnockbackRoutine == null && !isCharging)
         {
@@ -1102,7 +1109,7 @@ public class ScarabAI : MonoBehaviour
         pendingSlash = SlashResult.None;
     }
 
-    void ApplyDamage(int dmg)
+    void ApplyDamage(int dmg, bool fromSlash = false)
     {
         if (phase2TransitionActive) return;
 
@@ -1124,7 +1131,8 @@ public class ScarabAI : MonoBehaviour
         if (healthBar != null) healthBar.SetHealth(currentHealth);
         SpawnFloatingText("-" + dmg, transform.position, new Color(1f, 0.08f, 0.08f));
         StartCoroutine(HitFlashWhite());
-        if (isWallStunned) wallStunSlashHits++;
+        if (isWallStunned && fromSlash) wallStunSlashHits++;
+        if (isWallStunned) wallStunDamageTotal += dmg;
 
         if (currentHealth <= 0)
         {
@@ -1186,9 +1194,7 @@ public class ScarabAI : MonoBehaviour
         playerRb.linearVelocity = Vector2.zero;
 
         CameraShake.Instance?.Shake(armorShakeStrength, armorShakeStrength);
-
-        if (headLight != null)
-            StartCoroutine(HeadArmorFlash());
+        if (headLight != null) StartCoroutine(HeadArmorFlash());
 
         Vector2 knockDir = ((Vector2)playerTransform.position - (Vector2)transform.position).normalized;
         Vector2 from     = playerTransform.position;
@@ -1215,7 +1221,6 @@ public class ScarabAI : MonoBehaviour
         if (state == ScarabState.Dead) yield break;
         state = ScarabState.Dead;
 
-        // Ensure player is never left frozen
         if (playerIsStunned)
         {
             playerIsStunned = false;
@@ -1229,68 +1234,72 @@ public class ScarabAI : MonoBehaviour
         bossIntroCam?.FocusOnBoss(transform.position);
         DisablePlayerInput();
 
-        float bodyLightStart = bodyLight != null ? bodyLight.intensity : 0f;
-        float headLightStart = headLight != null ? headLight.intensity : 0f;
+        // ── Step 1: flapWings亮起，backLight快速闪烁 2s ─────────────────────
+        SetWingAlpha(wingMaxAlpha);
 
-        // ── Death thrash scramble ─────────────────────────────────────────────
-        // Like a dying insect: frantic spasms that slow down and fade out.
-        int thrashCount = 5;
-        for (int i = 0; i < thrashCount; i++)
+        float flashDur     = 2f;
+        float flashElapsed = 0f;
+        float flashPhase   = 0f;
+        float flashFreq    = 6f;  // 每秒6次闪烁
+        float peakIntensity = weakPointIntensity * 2f;
+        if (backLight != null) backLight.intensity = peakIntensity;
+        while (flashElapsed < flashDur)
         {
-            float frac    = (float)(i + 1) / thrashCount;
-            bool  lastOne = (i == thrashCount - 1);
-
-            // Wing burst — desperate flap, amplitude decays each cycle
-            float wingTarget = lastOne ? wingMinAlpha : Mathf.Lerp(wingMaxAlpha, wingMinAlpha, frac * 0.5f);
-            StartCoroutine(FadeWingAlpha(GetWingAlpha(), wingTarget, 0.08f));
-
-            // Shake body — starts violent, decelerates into exhaustion
-            float shakeDur = Mathf.Lerp(0.35f, 0.12f, frac);
-            float shakeAmp = Mathf.Lerp(0.55f, 0.15f, frac);
-            CameraShake.Instance?.Shake(shakeAmp * 0.5f, shakeDur);
-            yield return StartCoroutine(DeathThrashShake(shakeDur, shakeAmp));
-
-            // Lights decay proportionally each cycle
-            if (bodyLight != null) bodyLight.intensity = Mathf.Lerp(bodyLightStart, 0f, frac);
-            if (headLight != null) headLight.intensity = Mathf.Lerp(headLightStart, 0f, frac);
-
-            // Wings fold down between thrashes
-            if (!lastOne)
-                StartCoroutine(FadeWingAlpha(GetWingAlpha(), wingMinAlpha, 0.15f));
-
-            // Pause grows — starts frantic, slows into dying exhaustion
-            if (!lastOne)
-                yield return new WaitForSeconds(Mathf.Lerp(0.08f, 0.45f, frac));
-        }
-
-        yield return new WaitForSeconds(0.15f);
-
-        // ── Dying ember — backLight briefly glows then all lights fade ────────
-        if (backLight != null) backLight.intensity = 2f;
-        yield return new WaitForSeconds(0.25f);
-
-        float fadeDuration = 1.0f;
-        float elapsed      = 0f;
-        float backStart    = backLight  != null ? backLight.intensity  : 0f;
-        float spriteAlpha  = sr != null ? sr.color.a : 1f;
-        while (elapsed < fadeDuration)
-        {
-            elapsed += Time.deltaTime;
-            float t = elapsed / fadeDuration;
-            if (backLight != null) backLight.intensity = Mathf.Lerp(backStart, 0f, t);
-            if (bodyLight != null) bodyLight.intensity = 0f;
-            if (headLight != null) headLight.intensity = 0f;
-            if (sr != null) { var c = sr.color; c.a = Mathf.Lerp(spriteAlpha, 0f, t); sr.color = c; }
-            SetWingAlpha(Mathf.Lerp(GetWingAlpha(), 0f, t));
+            flashElapsed += Time.deltaTime;
+            flashPhase   += Time.deltaTime * flashFreq * Mathf.PI * 2f;
+            float flickerT = (Mathf.Sin(flashPhase) + 1f) * 0.5f;
+            if (backLight != null) backLight.intensity = Mathf.Lerp(peakIntensity * 0.2f, peakIntensity, flickerT);
             yield return null;
         }
-
         if (backLight != null) backLight.intensity = 0f;
-        if (bodyLight != null) bodyLight.intensity = 0f;
-        if (headLight != null) headLight.intensity = 0f;
-        SetWingAlpha(0f);
 
-        yield return new WaitForSeconds(0.4f);
+        // ── Step 2: flapWing掉落 ─────────────────────────────────────────────
+        if (flapWingLeft != null)
+        {
+            Vector2 vel = new Vector2(Random.Range(-1.5f, -0.5f), 0f);
+            StartCoroutine(WingFallFade(flapWingLeft.gameObject, vel, 0f, 1.5f));
+            flapWingLeft = null;
+        }
+        if (flapWingRight != null)
+        {
+            Vector2 vel = new Vector2(Random.Range(0.5f, 1.5f), 0f);
+            StartCoroutine(WingFallFade(flapWingRight.gameObject, vel, 0f, 1.5f));
+            flapWingRight = null;
+        }
+
+        yield return new WaitForSeconds(1.5f);
+
+        // ── Step 3: 所有剩余部件（sr、head、静态wing）变暗枯黄，留在原地 ───
+        var allSRs      = GetComponentsInChildren<SpriteRenderer>(true);
+        var savedColors = new Color[allSRs.Length];
+        for (int i = 0; i < allSRs.Length; i++) savedColors[i] = allSRs[i].color;
+
+        Color witherColor  = new Color(0.35f, 0.28f, 0.05f);
+        float witherDur    = 1.5f;
+        float witherElapsed = 0f;
+        while (witherElapsed < witherDur)
+        {
+            witherElapsed += Time.deltaTime;
+            float t = Mathf.SmoothStep(0f, 1f, witherElapsed / witherDur);
+            for (int i = 0; i < allSRs.Length; i++)
+            {
+                if (allSRs[i] == null) continue;
+                Color orig = savedColors[i];
+                allSRs[i].color = new Color(
+                    Mathf.Lerp(orig.r, witherColor.r, t),
+                    Mathf.Lerp(orig.g, witherColor.g, t),
+                    Mathf.Lerp(orig.b, witherColor.b, t),
+                    orig.a);
+            }
+            yield return null;
+        }
+        yield return new WaitForSeconds(1.5f);
+
+        // 关掉所有灯
+        foreach (var light in GetComponentsInChildren<Light2D>(true))
+            if (light != null) light.intensity = 0f;
+
+        yield return new WaitForSeconds(0.3f);
 
         if (bossIntroCam != null && playerTransform != null)
             yield return StartCoroutine(bossIntroCam.PanBackToPlayer(playerTransform));
@@ -1316,6 +1325,29 @@ public class ScarabAI : MonoBehaviour
             yield return null;
         }
         transform.position = origin;
+    }
+
+    IEnumerator WingFallFade(GameObject wingGO, Vector2 initialVelocity, float spinDegPerSec, float duration)
+    {
+        if (wingGO == null) yield break;
+        wingGO.transform.SetParent(null);
+        var   wingSR  = wingGO.GetComponent<SpriteRenderer>();
+        float startA  = wingSR != null ? wingSR.color.a : 1f;
+        float elapsed = 0f;
+        Vector2 vel   = initialVelocity;
+
+        while (elapsed < duration && wingGO != null)
+        {
+            elapsed  += Time.deltaTime;
+            vel.y    -= 6f * Time.deltaTime;  // gravity
+            wingGO.transform.position += (Vector3)(vel * Time.deltaTime);
+            wingGO.transform.Rotate(0f, 0f, spinDegPerSec * Time.deltaTime);
+            float t = elapsed / duration;
+            if (wingSR != null) { var c = wingSR.color; c.a = Mathf.Lerp(startA, 0f, t); wingSR.color = c; }
+            yield return null;
+        }
+
+        if (wingGO != null) Destroy(wingGO);
     }
 
     // ── Phase 2 Transition Cinematic ─────────────────────────────────────────
@@ -1438,7 +1470,7 @@ public class ScarabAI : MonoBehaviour
 
         // Boss invisible off-screen — start circle, wait 2/3 tracking player, then appear enlarged
         Vector2 offScreenPos      = landPos + Vector2.up * (roomHalfSize.y + 10f);
-        float   transitionDiveDur = Vector2.Distance(offScreenPos, landPos) / p2DiveSpeed + 0.6f;
+        float   transitionDiveDur = Vector2.Distance(offScreenPos, landPos) / p2DiveSpeed + diveTimeBuffer;
         transform.position   = offScreenPos;
         transform.localScale = savedScale;
 
@@ -1520,14 +1552,6 @@ public class ScarabAI : MonoBehaviour
 
         // ── Landing impact ───────────────────────────────────────────────────
         CameraShake.Instance?.Shake(0.6f, 0.5f);
-        if (bodyLight != null)
-        {
-            float savedRadius = bodyLight.pointLightOuterRadius;
-            bodyLight.intensity             = 8f;
-            bodyLight.pointLightOuterRadius = p2LandingLightRadius;
-            StartCoroutine(FadeLight(bodyLight, 8f, introBodyIntensity, 0.6f));
-            StartCoroutine(FadeLightRadius(bodyLight, p2LandingLightRadius, savedRadius, 0.6f));
-        }
 
         EnablePlayerInput();
         phase2TransitionActive = false;
@@ -1688,8 +1712,6 @@ void SetCirclePoints(LineRenderer lr, Vector2 center, float radius, int segments
 
     IEnumerator HitFlashWhite()
     {
-        // Color changes on Scarab SpriteRenderers are disabled during battle.
-        // Armor hit feedback is handled by headLight flash in ArmorKnockbackSequence.
         yield break;
     }
 
@@ -1706,30 +1728,6 @@ void SetCirclePoints(LineRenderer lr, Vector2 center, float radius, int segments
             elapsed += playerBlinkInterval;
         }
         playerSR.enabled = true;
-    }
-
-    IEnumerator HeadOrangeFlicker(float frequency = 2.2f, float minInt = 1.2f, float maxInt = 4f)
-    {
-        if (headLight == null) yield break;
-        Color savedColor   = headLight.color;
-        float savedIntensity = headLight.intensity;
-        headLight.color    = new Color(1f, 0.45f, 0f); // orange
-        float phase = 0f;
-        while (true)
-        {
-            phase += Time.deltaTime * frequency * Mathf.PI * 2f;
-            // Sine mapped to [0,1], then remapped to [min,max] with slight randomness for organic feel
-            float t = (Mathf.Sin(phase) + 1f) * 0.5f;
-            headLight.intensity = Mathf.Lerp(minInt, maxInt, t) + Random.Range(-0.15f, 0.15f);
-            yield return null;
-        }
-        // unreachable — caller stops via StopCoroutine, then restores manually
-    }
-
-    void StopHeadFlicker()
-    {
-        if (headFlickerRoutine != null) { StopCoroutine(headFlickerRoutine); headFlickerRoutine = null; }
-        if (headLight != null) { headLight.color = Color.white; headLight.intensity = 0f; }
     }
 
     IEnumerator FadeLight(Light2D light, float from, float to, float duration)

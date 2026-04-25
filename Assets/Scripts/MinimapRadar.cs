@@ -22,7 +22,6 @@ public class MinimapRadar : MonoBehaviour
     public Color playerColor = new Color(1f, 1f, 1f, 0.6f);
     public Color portalColor = new Color(0.3f, 1f, 0.5f, 1f);
     public float portalDotSize = 14f;
-    public Color healthPickupColor = new Color(0.2f, 1f, 0.3f, 1f);
 
     [Header("Room Layout")]
     public Color wallColor = new Color(0.6f, 0.65f, 0.7f, 0.4f);
@@ -48,9 +47,6 @@ public class MinimapRadar : MonoBehaviour
     private TilemapRoomBuilder cachedBuilder;
     private int lastBuiltRoom = -1;
 
-    // Cached portal reference (refreshed when null)
-    private RoomClearPortal cachedPortal;
-
     struct TrackedDot
     {
         public Transform target;
@@ -68,36 +64,22 @@ public class MinimapRadar : MonoBehaviour
 
         dotPoolIndex = 0;
 
-        // Enemies — iterate cached registry instead of scanning the scene
-        var enemies = EnemyRegistry.AllAI;
-        for (int i = 0; i < enemies.Count; i++)
+        // Enemies
+        var enemies = FindObjectsByType<EnemyAI>(FindObjectsSortMode.None);
+        foreach (var enemy in enemies)
         {
-            var enemy = enemies[i];
             if (enemy == null) continue;
             PlaceDot(enemy.transform.position, enemy.IsActivated ? enemyActiveColor : enemyDormantColor);
         }
 
-        // Health pickups — bright green pulsing dot
-        var pickups = HealthPickup.AllPickups;
-        for (int i = 0; i < pickups.Count; i++)
-        {
-            var pickup = pickups[i];
-            if (pickup == null) continue;
-            float hpPulse = 0.6f + 0.4f * Mathf.Sin(Time.time * 3f);
-            Color hpColor = healthPickupColor;
-            hpColor.a = hpPulse;
-            PlaceDot(pickup.transform.position, hpColor);
-        }
-
-        // Portal — pulsing green dot (cache reference, re-find only when null)
-        if (cachedPortal == null)
-            cachedPortal = FindAnyObjectByType<RoomClearPortal>();
-        if (cachedPortal != null)
+        // Portal — pulsing green dot
+        var portal = FindAnyObjectByType<RoomClearPortal>();
+        if (portal != null)
         {
             float pulse = 0.6f + 0.4f * Mathf.Sin(Time.time * 5f);
             Color pColor = portalColor;
             pColor.a = pulse;
-            PlaceDot(cachedPortal.transform.position, pColor, portalDotSize);
+            PlaceDot(portal.transform.position, pColor, portalDotSize);
         }
 
         // Hide unused dots

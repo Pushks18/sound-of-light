@@ -32,13 +32,6 @@ public class EnemyHealth : MonoBehaviour
         // Attach a mini health bar above this enemy
         healthBar = EnemyHealthBar.AttachTo(gameObject, maxHealth);
         healthBar?.SetVisible(false, true);
-
-        EnemyRegistry.Register(this);
-    }
-
-    void OnDestroy()
-    {
-        EnemyRegistry.Unregister(this);
     }
 
     void Update()
