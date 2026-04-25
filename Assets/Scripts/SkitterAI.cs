@@ -20,6 +20,7 @@ public class SkitterAI : MonoBehaviour
     public GameObject bulletPrefab;
     public float shootInterval = 3f;
     public float shootRange = 12f;
+    [Tooltip("Must be less than shootRange. Skitter fires at closeShootInterval when player is within this distance.")]
     public float closeShootRange = 5f;
     public float closeShootInterval = 0.8f;
 
@@ -61,7 +62,10 @@ public class SkitterAI : MonoBehaviour
     void Start()
     {
         player = GameObject.FindGameObjectWithTag("Player")?.transform;
-        shootTimer = shootInterval;
+        float initDist = player != null
+            ? Vector2.Distance(transform.position, player.position)
+            : float.MaxValue;
+        shootTimer = initDist <= closeShootRange ? closeShootInterval : shootInterval;
         StatusHUD.Instance?.UpdateEnemies();
     }
 
