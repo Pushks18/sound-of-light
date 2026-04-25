@@ -24,6 +24,9 @@ public class SkitterAI : MonoBehaviour
     [Header("Light Reaction")]
     public float lightDetectRadius = 5f;
 
+    [Header("Detection")]
+    public float playerDetectRange = 15f;
+
     [Header("Wall Avoidance")]
     public float wallCheckDist = 1.4f;
     public float wallRepulsionStrength = 3f;
@@ -132,6 +135,13 @@ public class SkitterAI : MonoBehaviour
 
     void Update()
     {
+        // Activate when player walks into detection range, even without light
+        if (!activated && player != null &&
+            Vector2.Distance(transform.position, player.position) <= playerDetectRange)
+        {
+            NotifyLightNearby();
+        }
+
         if (!activated || player == null) return;
 
         // Rotate tip to face player
