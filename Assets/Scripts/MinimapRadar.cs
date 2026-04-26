@@ -22,6 +22,9 @@ public class MinimapRadar : MonoBehaviour
     public Color playerColor = new Color(1f, 1f, 1f, 0.6f);
     public Color portalColor = new Color(0.3f, 1f, 0.5f, 1f);
     public float portalDotSize = 14f;
+    public Color skitterDormantColor = new Color(1f, 0.55f, 0.1f, 0.35f);
+    public Color skitterActiveColor  = new Color(1f, 0.35f, 0f, 1f);
+    public float skitterDotSize = 13f;
 
     [Header("Room Layout")]
     public Color wallColor = new Color(0.6f, 0.65f, 0.7f, 0.4f);
@@ -38,8 +41,13 @@ public class MinimapRadar : MonoBehaviour
     private List<Image> dotPool = new List<Image>();
     private int dotPoolIndex;
 
+    // Separate pool for triangle (skitter) markers
+    private List<Image> triPool = new List<Image>();
+    private int triPoolIndex;
+
     private Canvas canvas;
     private static Sprite circleSprite;
+    private static Sprite triangleSprite;
 
     // Room layout
     private RawImage roomLayoutImage;
@@ -63,13 +71,25 @@ public class MinimapRadar : MonoBehaviour
         UpdateRoomLayout();
 
         dotPoolIndex = 0;
+        triPoolIndex = 0;
 
-        // Enemies
+        // Base enemies (circle dots)
         var enemies = FindObjectsByType<EnemyAI>(FindObjectsSortMode.None);
         foreach (var enemy in enemies)
         {
             if (enemy == null) continue;
             PlaceDot(enemy.transform.position, enemy.IsActivated ? enemyActiveColor : enemyDormantColor);
+        }
+
+        // Skitters (triangle dots) — only track tagged enemies, not stale/test objects
+        var skitters = FindObjectsByType<SkitterAI>(FindObjectsSortMode.None);
+        foreach (var skitter in skitters)
+        {
+            if (skitter == null || !skitter.CompareTag("Enemy")) continue;
+            bool active = skitter.IsActivated;
+            PlaceTriDot(skitter.transform.position,
+                        active ? skitterActiveColor : skitterDormantColor,
+                        skitter.transform.rotation.eulerAngles.z);
         }
 
         // Portal — pulsing green dot
@@ -82,9 +102,54 @@ public class MinimapRadar : MonoBehaviour
             PlaceDot(portal.transform.position, pColor, portalDotSize);
         }
 
-        // Hide unused dots
+        // Hide unused dots and triangles
         for (int i = dotPoolIndex; i < dotPool.Count; i++)
             dotPool[i].enabled = false;
+        for (int i = triPoolIndex; i < triPool.Count; i++)
+            triPool[i].enabled = false;
+    }
+
+    void PlaceTriDot(Vector3 worldPos, Color color, float worldRotZ)
+    {
+        float size = skitterDotSize;
+        Vector2 offset = (Vector2)(worldPos - transform.position);
+        float dist = offset.magnitude;
+
+        float radarRadius  = radarSize * 0.5f;
+        float maxDotRadius = radarRadius - size * 0.5f;
+        float radarDist    = (dist / worldRadius) * maxDotRadius;
+        Vector2 dir        = dist > 0.01f ? offset.normalized : Vector2.up;
+        if (radarDist > maxDotRadius) radarDist = maxDotRadius;
+
+        Image tri = GetOrCreateTriDot();
+        tri.enabled = true;
+        tri.color   = color;
+        tri.rectTransform.anchoredPosition = dir * radarDist;
+        float scale = dist > worldRadius ? 0.7f : 1f;
+        tri.rectTransform.sizeDelta = new Vector2(size * scale, size * scale);
+        // Rotate the triangle to match the skitter's facing direction in the world
+        tri.rectTransform.localRotation = Quaternion.Euler(0f, 0f, worldRotZ);
+    }
+
+    Image GetOrCreateTriDot()
+    {
+        if (triPoolIndex < triPool.Count)
+            return triPool[triPoolIndex++];
+
+        var dotObj = new GameObject("SkitterTriDot");
+        dotObj.transform.SetParent(radarRect, false);
+
+        var img = dotObj.AddComponent<Image>();
+        img.sprite        = GetTriangleSprite();
+        img.raycastTarget = false;
+        img.rectTransform.sizeDelta  = new Vector2(skitterDotSize, skitterDotSize);
+        img.rectTransform.anchorMin  = new Vector2(0.5f, 0.5f);
+        img.rectTransform.anchorMax  = new Vector2(0.5f, 0.5f);
+        img.rectTransform.pivot      = new Vector2(0.5f, 0.5f);
+
+        triPool.Add(img);
+        triPoolIndex++;
+        return img;
     }
 
     void PlaceDot(Vector3 worldPos, Color color, float size = -1f)
@@ -329,6 +394,53 @@ public class MinimapRadar : MonoBehaviour
     {
         if (roomLayoutTex != null) Destroy(roomLayoutTex);
     }
+
+    static Sprite GetTriangleSprite()
+    {
+        if (triangleSprite != null) return triangleSprite;
+
+        int size = 64;
+        var tex = new Texture2D(size, size, TextureFormat.RGBA32, false);
+        tex.filterMode = FilterMode.Bilinear;
+
+        // Fill with transparent first
+        Color clear = Color.clear;
+        for (int y = 0; y < size; y++)
+            for (int x = 0; x < size; x++)
+                tex.SetPixel(x, y, clear);
+
+        // Triangle vertices (tip at top, base at bottom), in pixel space
+        Vector2 v0 = new Vector2(size * 0.5f, size - 2f);  // tip
+        Vector2 v1 = new Vector2(2f,           2f);          // bottom-left
+        Vector2 v2 = new Vector2(size - 2f,    2f);          // bottom-right
+
+        for (int y = 0; y < size; y++)
+        {
+            for (int x = 0; x < size; x++)
+            {
+                Vector2 p = new Vector2(x + 0.5f, y + 0.5f);
+                if (PointInTriangle(p, v0, v1, v2))
+                    tex.SetPixel(x, y, Color.white);
+            }
+        }
+
+        tex.Apply();
+        triangleSprite = Sprite.Create(tex, new Rect(0, 0, size, size), new Vector2(0.5f, 0.5f), size);
+        return triangleSprite;
+    }
+
+    static bool PointInTriangle(Vector2 p, Vector2 a, Vector2 b, Vector2 c)
+    {
+        float d1 = Sign(p, a, b);
+        float d2 = Sign(p, b, c);
+        float d3 = Sign(p, c, a);
+        bool hasNeg = (d1 < 0f) || (d2 < 0f) || (d3 < 0f);
+        bool hasPos = (d1 > 0f) || (d2 > 0f) || (d3 > 0f);
+        return !(hasNeg && hasPos);
+    }
+
+    static float Sign(Vector2 p, Vector2 a, Vector2 b)
+        => (p.x - b.x) * (a.y - b.y) - (a.x - b.x) * (p.y - b.y);
 
     static Sprite GetCircleSprite()
     {

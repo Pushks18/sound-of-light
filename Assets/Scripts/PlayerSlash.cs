@@ -17,8 +17,17 @@ public class PlayerSlash : MonoBehaviour
     public Color arcColor = new Color(1f, 0.9f, 0.4f, 0.5f);
     public Color arcEdgeColor = new Color(1f, 1f, 0.8f, 0.8f);
 
+    [Header("Spam Pushback")]
+    [SerializeField] int   spamThreshold    = 7;
+    [SerializeField] float spamWindow       = 2f;
+    [SerializeField] float pushbackForce    = 18f;
+    [SerializeField] float pushbackLockout  = 0.6f;
+
     private PlayerMovement playerMovement;
     private float cooldownTimer;
+    private int   spamCount;
+    private float spamTimer;
+    private float pushbackTimer;
 
     [SerializeField] private bool disableSlashOnLevel;
 
@@ -33,8 +42,13 @@ public class PlayerSlash : MonoBehaviour
 
     void Update()
     {
-        if (cooldownTimer > 0f)
-            cooldownTimer -= Time.deltaTime;
+        if (cooldownTimer > 0f)  cooldownTimer  -= Time.deltaTime;
+        if (pushbackTimer > 0f)  pushbackTimer  -= Time.deltaTime;
+
+        if (spamTimer > 0f)
+            spamTimer -= Time.deltaTime;
+        else
+            spamCount = 0;
 
         LevelExit exit = FindFirstObjectByType<LevelExit>();
         if (exit != null)
@@ -43,11 +57,38 @@ public class PlayerSlash : MonoBehaviour
             if (done) return;
         }
 
-        if (Input.GetKeyDown(KeyCode.J) && cooldownTimer <= 0f && !disableSlashOnLevel)
+        if (Input.GetKeyDown(KeyCode.J) && cooldownTimer <= 0f && !disableSlashOnLevel && pushbackTimer <= 0f)
         {
+            spamCount++;
+            spamTimer = spamWindow;
+
+            if (spamCount >= spamThreshold)
+            {
+                TriggerSpamPushback();
+                return;
+            }
+
             PerformSlash();
             cooldownTimer = cooldown;
         }
+    }
+
+    void TriggerSpamPushback()
+    {
+        if (!IsInBossFight()) { spamCount = 0; return; }
+
+        spamCount     = 0;
+        spamTimer     = 0f;
+        pushbackTimer = pushbackLockout;
+
+        Vector2 aim = playerMovement != null ? playerMovement.AimDirection : Vector2.up;
+        playerMovement?.ApplyKnockback(-aim * pushbackForce, pushbackLockout);
+    }
+
+    static bool IsInBossFight()
+    {
+        var crimson = FindFirstObjectByType<CrimsonAI>();
+        return crimson != null && crimson.IsInClonePhase;
     }
 
     void PerformSlash()

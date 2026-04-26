@@ -9,6 +9,8 @@ public class SkitterAI : MonoBehaviour
     [SerializeField] private float triTipY  =  1.1f;
     [SerializeField] private float triBaseX =  0.9f;
     [SerializeField] private float triBaseY = -0.9f;
+    [Tooltip("Scales the visible mesh only — collider stays at full size so physics never breaks.")]
+    [SerializeField] private float visualScale = 1f;
 
     [Header("Movement")]
     public float moveSpeed = 3f;
@@ -87,12 +89,13 @@ public class SkitterAI : MonoBehaviour
         var mf = gameObject.AddComponent<MeshFilter>();
         meshRend = gameObject.AddComponent<MeshRenderer>();
 
+        float vs = Mathf.Max(visualScale, 0.05f); // never let mesh shrink to zero
         var mesh = new Mesh { name = "SkitterTriangle" };
         mesh.vertices = new Vector3[]
         {
-            new Vector3(0f,        triTipY,  0f),
-            new Vector3(-triBaseX, triBaseY, 0f),
-            new Vector3( triBaseX, triBaseY, 0f)
+            new Vector3(0f,            triTipY  * vs, 0f),
+            new Vector3(-triBaseX * vs, triBaseY * vs, 0f),
+            new Vector3( triBaseX * vs, triBaseY * vs, 0f)
         };
         mesh.triangles = new int[] { 0, 2, 1 };
         mesh.uv = new Vector2[] { new Vector2(0.5f, 1f), new Vector2(0f, 0f), new Vector2(1f, 0f) };
@@ -200,7 +203,10 @@ public class SkitterAI : MonoBehaviour
 
         if (frightened)
         {
-            rb.linearVelocity = fleeFromLight.normalized * panicSpeed;
+            Vector2 wallRepulsion = ComputeWallRepulsion(wallCheckDist);
+            Vector2 fleeDir = fleeFromLight.normalized + wallRepulsion * wallRepulsionStrength;
+            if (fleeDir.sqrMagnitude < 0.01f) fleeDir = fleeFromLight.normalized;
+            rb.linearVelocity = fleeDir.normalized * panicSpeed;
             return;
         }
 

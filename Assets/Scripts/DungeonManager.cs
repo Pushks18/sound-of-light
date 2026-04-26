@@ -65,6 +65,10 @@ public class DungeonManager : MonoBehaviour
 
     [Header("Spawn Prefabs (progressive mode)")]
     public GameObject enemyPrefab;
+    public GameObject skitterPrefab;
+    [Tooltip("Fraction of the enemy budget spawned as Skitters (0 = none, 1 = all). 0.6 = generously Skitter-heavy.")]
+    [Range(0f, 1f)]
+    public float skitterFraction = 0.6f;
     public GameObject trapPrefab;
     public GameObject keyPrefab;
 
@@ -374,31 +378,58 @@ public class DungeonManager : MonoBehaviour
         }
 
         // --- Spawn enemies (outside spawn flash radius) ---
-        int enemiesSpawned = 0;
+        // Split budget: skitterFraction of slots go to Skitter, remainder to base enemy.
+        int skitterTarget = (skitterPrefab != null)
+            ? Mathf.RoundToInt(enemyTarget * skitterFraction)
+            : 0;
+        int baseTarget = enemyTarget - skitterTarget;
+
+        int enemiesSpawned  = 0;
+        int skittersSpawned = 0;
         List<Vector3> enemyPositions = new List<Vector3>();
 
-        if (enemyPrefab != null)
+        float minEnemyDistSq = minDistBetweenEnemies * minDistBetweenEnemies;
+        // Same exclusion zone as base enemies — flee-with-wall-repulsion handles the rest.
+        float skitterMinDist = spawnFlashRadius;
+
+        foreach (var cell in validCells)
         {
-            float minEnemyDistSq = minDistBetweenEnemies * minDistBetweenEnemies;
+            if (enemiesSpawned >= baseTarget && skittersSpawned >= skitterTarget) break;
 
-            foreach (var cell in validCells)
+            Vector3 pos = roomBuilder.CellToWorld(cell);
+            float distToPlayer = Vector2.Distance(pos, playerPos);
+            if (distToPlayer < spawnFlashRadius) continue;
+
+            bool tooClose = false;
+            foreach (var ep in enemyPositions)
             {
-                if (enemiesSpawned >= enemyTarget) break;
-                Vector3 pos = roomBuilder.CellToWorld(cell);
-                if (Vector2.Distance(pos, playerPos) < spawnFlashRadius)
-                    continue;
+                if (((Vector2)(pos - ep)).sqrMagnitude < minEnemyDistSq)
+                { tooClose = true; break; }
+            }
+            if (tooClose) continue;
 
-                bool tooClose = false;
-                foreach (var ep in enemyPositions)
-                {
-                    if (((Vector2)(pos - ep)).sqrMagnitude < minEnemyDistSq)
-                    { tooClose = true; break; }
-                }
-                if (tooClose) continue;
+            // Alternate between types so they spread naturally across the room.
+            bool wantSkitter = skittersSpawned < skitterTarget
+                && (enemiesSpawned >= baseTarget || skittersSpawned <= enemiesSpawned);
+            bool wantBase    = enemiesSpawned < baseTarget && enemyPrefab != null;
 
-                Instantiate(enemyPrefab, pos, Quaternion.identity);
+            if (wantSkitter && distToPlayer >= skitterMinDist)
+            {
+                Instantiate(skitterPrefab, pos, Quaternion.identity);
+                skittersSpawned++;
                 enemyPositions.Add(pos);
+            }
+            else if (wantBase)
+            {
+                Instantiate(enemyPrefab, pos, Quaternion.identity);
                 enemiesSpawned++;
+                enemyPositions.Add(pos);
+            }
+            else if (skittersSpawned < skitterTarget && distToPlayer >= skitterMinDist)
+            {
+                Instantiate(skitterPrefab, pos, Quaternion.identity);
+                skittersSpawned++;
+                enemyPositions.Add(pos);
             }
         }
 
@@ -418,8 +449,8 @@ public class DungeonManager : MonoBehaviour
             }
         }
 
-        Debug.Log($"Spawned {enemiesSpawned} enemies, {trapsSpawned} traps");
-        return enemiesSpawned;
+        Debug.Log($"Spawned {enemiesSpawned} base enemies, {skittersSpawned} skitters, {trapsSpawned} traps");
+        return enemiesSpawned + skittersSpawned;
     }
 
     void EmitSpawnFlash()

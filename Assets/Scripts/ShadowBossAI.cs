@@ -1,6 +1,5 @@
 using UnityEngine;
 using UnityEngine.Rendering.Universal;
-using UnityEngine.UI;
 using System.Collections;
 
 /// <summary>
@@ -42,13 +41,12 @@ public class ShadowBossAI : MonoBehaviour
     // Phase 1: single slash
     [SerializeField] float phase1SlashRadius    = 9f;
     [SerializeField] float phase1SlashAngle     = 220f;
-    [SerializeField] float phase1AttackMin      = 2f;
-    [SerializeField] float phase1AttackMax      = 3f;
-    // Phase 2: rapid multi-slash combo
-    [SerializeField] float phase2SlashRadius    = 30f;   // covers full arena
-    [SerializeField] float phase2SlashAngle     = 360f;
-    [SerializeField] float phase2AttackInterval = 0.5f;  // time between consecutive slashes
-    [SerializeField] int   phase2SlashComboCount = 3;    // slashes per combo
+    [SerializeField] float phase1AttackMin      = 3f;
+    [SerializeField] float phase1AttackMax      = 5f;
+    // Phase 2: single slash (wider arc, shorter cooldown than phase 1)
+    [SerializeField] float phase2SlashRadius    = 30f;
+    [SerializeField] float phase2SlashAngle     = 280f;
+    [SerializeField] float phase2AttackInterval = 4f;
 
     [Header("Attack — Rapid Fire (far range)")]
     [SerializeField] float      rapidFireCooldown = 0.10f;
@@ -65,11 +63,6 @@ public class ShadowBossAI : MonoBehaviour
     [SerializeField] int   berserkBulletCount   = 14;
     [SerializeField] float berserkSpeedMult     = 1.7f;
     [SerializeField] int   berserkContactDamage = 1;
-
-    [Header("Attack — Phase 2 Sweep")]
-    [SerializeField] float sweepWarningDuration = 2.0f;
-    [SerializeField] int   sweepDamageToPlayer  = 1;
-    [SerializeField] float phase2SweepInterval  = 20f;
 
     [Header("Damage")]
     [SerializeField] int   slashDamageToPlayer = 1;
@@ -89,19 +82,21 @@ public class ShadowBossAI : MonoBehaviour
     // ── State ─────────────────────────────────────────────────────────────────
 
     enum BossState { Dormant, Intro, Idle, CloseAttack, CloseAttackActive,
-                     RapidFire, Berserk, Recover, Dead }
+                     RapidFire, Berserk, Recover, Stunned, Dead }
     BossState state = BossState.Dormant;
 
     float health;
     float attackTimer;
     float stateTimer;
-    float sweepTimer;
     float berserkTimer;
     float multiBurstTimer;
 
-    bool rapidFireRunning;
-    bool berserkRunning;
-    bool sweepScheduled;
+    bool  rapidFireRunning;
+    bool  berserkRunning;
+    bool  berserkPlayerHit;
+    float attackLockTimer;
+    BossSlashHitbox lastSlashHitbox;
+    float           lastSlashRadius;
 
     Transform      playerTransform;
     PlayerMovement playerMovement;
@@ -238,12 +233,27 @@ public class ShadowBossAI : MonoBehaviour
 
         attackTimer     = Random.Range(phase1AttackMin, phase1AttackMax);
         berserkTimer    = berserkInterval;
-        sweepTimer      = phase2SweepInterval;
         multiBurstTimer = multiBurstInterval;
     }
 
     public bool IsInBattle =>
         state != BossState.Dormant && state != BossState.Intro && state != BossState.Dead;
+
+    public IEnumerator SpecialStun(float duration)
+    {
+        state = BossState.Stunned;
+        if (rb != null) rb.linearVelocity = Vector2.zero;
+        RestoreBaseColors();
+        SetGlow(new Color(0.9f, 0.9f, 0.2f), 3f);
+
+        yield return new WaitForSeconds(duration);
+
+        SetGlow(new Color(0.45f, 0.60f, 0.85f), 0.6f);
+        state           = BossState.Idle;
+        attackTimer     = Random.Range(phase1AttackMin, phase1AttackMax);
+        berserkTimer    = berserkInterval;
+        multiBurstTimer = multiBurstInterval;
+    }
 
     // ── Update ────────────────────────────────────────────────────────────────
 
@@ -252,20 +262,18 @@ public class ShadowBossAI : MonoBehaviour
         if (state == BossState.Dormant || state == BossState.Intro || state == BossState.Dead)
             return;
 
-        stateTimer -= Time.deltaTime;
-
-        // Phase 2 sweep — triggers only from Idle
-        if (IsPhase2 && !sweepScheduled && state == BossState.Idle)
+        if (Input.GetKeyDown(KeyCode.L) && state != BossState.Stunned)
         {
-            sweepTimer -= Time.deltaTime;
-            if (sweepTimer <= 0f)
-            {
-                sweepTimer     = phase2SweepInterval;
-                sweepScheduled = true;
-                StartCoroutine(SweepAttack());
-                return;
-            }
+            StopAllCoroutines();
+            rapidFireRunning = false;
+            berserkRunning   = false;
+            StartCoroutine(SpecialStun(3f));
         }
+
+        if (state == BossState.Stunned)
+            return;
+
+        stateTimer -= Time.deltaTime;
 
         // Multi-burst — fires in Idle/CloseAttack (not during berserk/rapid fire)
         if (state == BossState.Idle || state == BossState.CloseAttack ||
@@ -292,7 +300,9 @@ public class ShadowBossAI : MonoBehaviour
     {
         if (playerTransform == null) return;
 
-        // Berserk
+        if (attackLockTimer > 0f) attackLockTimer -= Time.deltaTime;
+
+        // Berserk (not gated by attackLockTimer)
         berserkTimer -= Time.deltaTime;
         if (berserkTimer <= 0f && !berserkRunning)
         {
@@ -305,19 +315,14 @@ public class ShadowBossAI : MonoBehaviour
 
         if (dist >= closeRangeThreshold)
         {
-            if (!rapidFireRunning)
+            if (!rapidFireRunning && attackLockTimer <= 0f)
                 StartCoroutine(DoRapidFire());
             return;
         }
 
         attackTimer -= Time.deltaTime;
-        if (attackTimer <= 0f)
-        {
-            if (IsPhase2)
-                StartCoroutine(Phase2SlashCombo());
-            else
-                EnterCloseAttack();
-        }
+        if (attackTimer <= 0f && attackLockTimer <= 0f)
+            EnterCloseAttack();
     }
 
     void UpdateCloseAttack()
@@ -359,7 +364,8 @@ public class ShadowBossAI : MonoBehaviour
         float dist = Vector2.Distance(transform.position, playerTransform.position);
         if (dist <= stopDistance || dist >= closeRangeThreshold)
         {
-            rb.linearVelocity = Vector2.zero;
+            Vector2 toCenter = roomCenter - (Vector2)transform.position;
+            rb.linearVelocity = toCenter.magnitude > 3f ? toCenter.normalized * 1.5f : Vector2.zero;
             return;
         }
 
@@ -409,39 +415,38 @@ public class ShadowBossAI : MonoBehaviour
     void EnterCloseAttackActive()
     {
         state      = BossState.CloseAttackActive;
-        stateTimer = slashActiveDuration;
-        FireBossSlash(phase1SlashRadius, phase1SlashAngle);
+        stateTimer = slashActiveDuration + 0.15f; // freeze time + active time
+        StartCoroutine(SlashWithFreeze());
+    }
+
+    IEnumerator SlashWithFreeze()
+    {
+        // Hard white peak — clear "it's about to slash" signal
+        SetGlow(Color.white, 10f);
+        if (allRenderers != null)
+            for (int i = 0; i < allRenderers.Length; i++)
+                if (allRenderers[i] != null)
+                    allRenderers[i].color = Color.white;
+        yield return new WaitForSeconds(0.15f);
+        if (state != BossState.CloseAttackActive) yield break;
+        float radius = IsPhase2 ? phase2SlashRadius : phase1SlashRadius;
+        float angle  = IsPhase2 ? phase2SlashAngle  : phase1SlashAngle;
+        FireBossSlash(radius, angle);
     }
 
     void EnterRecover()
     {
+        if (lastSlashHitbox != null && !lastSlashHitbox.DidHit && playerTransform != null)
+        {
+            float d = Vector2.Distance(transform.position, playerTransform.position);
+            if (d < lastSlashRadius + 2f)
+                StartCoroutine(NearMissFlicker());
+        }
+        lastSlashHitbox = null;
+
         state      = BossState.Recover;
         stateTimer = recoverDuration;
         if (rb != null) rb.linearVelocity = Vector2.zero;
-    }
-
-    // ── Phase 2 Slash Combo ───────────────────────────────────────────────────
-
-    IEnumerator Phase2SlashCombo()
-    {
-        state = BossState.CloseAttack;
-        if (rb != null) rb.linearVelocity = Vector2.zero;
-
-        for (int i = 0; i < phase2SlashComboCount; i++)
-        {
-            if (state == BossState.Dead) yield break;
-
-            // Brief telegraph flash for each slash
-            SetGlow(new Color(1f, 1f, 1f), 6f);
-            yield return new WaitForSeconds(telegraphDuration * 0.6f);
-
-            FireBossSlash(phase2SlashRadius, phase2SlashAngle);
-            SetGlow(new Color(0.45f, 0.60f, 0.85f), 0.6f);
-
-            yield return new WaitForSeconds(slashActiveDuration + phase2AttackInterval);
-        }
-
-        EnterRecover();
     }
 
     // ── Boss Slash ────────────────────────────────────────────────────────────
@@ -489,7 +494,9 @@ public class ShadowBossAI : MonoBehaviour
         light.pointLightInnerRadius = radius * 0.1f;
         light.shadowsEnabled        = false;
 
-        slashObj.AddComponent<BossSlashHitbox>().Init(slashDamageToPlayer);
+        lastSlashHitbox = slashObj.AddComponent<BossSlashHitbox>();
+        lastSlashHitbox.Init(slashDamageToPlayer);
+        lastSlashRadius = radius;
 
         var fader    = slashObj.AddComponent<SlashFader>();
         fader.duration = slashActiveDuration;
@@ -566,6 +573,11 @@ public class ShadowBossAI : MonoBehaviour
         rapidFireRunning = true;
         state            = BossState.RapidFire;
         if (rb != null) rb.linearVelocity = Vector2.zero;
+
+        // Pre-fire charge signal
+        SetGlow(new Color(0.1f, 0.3f, 1.0f), 5.0f);
+        yield return new WaitForSeconds(0.2f);
+        if (state != BossState.RapidFire) { rapidFireRunning = false; yield break; }
         SetGlow(new Color(0.3f, 0.5f, 1.0f), 2.0f);
 
         while (state == BossState.RapidFire)
@@ -589,10 +601,11 @@ public class ShadowBossAI : MonoBehaviour
     void FireBulletAtPlayer()
     {
         if (bulletPrefab == null || playerTransform == null) return;
-        float angle = Mathf.Atan2(
+        float angle  = Mathf.Atan2(
             playerTransform.position.y - transform.position.y,
             playerTransform.position.x - transform.position.x) * Mathf.Rad2Deg;
-        SpawnBullet(angle);
+        float spread = IsPhase2 ? Random.Range(-5f, 5f) : 0f;
+        SpawnBullet(angle + spread);
     }
 
     // ── Multi-Burst ───────────────────────────────────────────────────────────
@@ -609,16 +622,27 @@ public class ShadowBossAI : MonoBehaviour
 
         float step = 360f / multiBurstCount;
         for (int i = 0; i < multiBurstCount; i++)
-            SpawnBullet(baseAngle + step * i);
+        {
+            float spiralOff = IsPhase2 ? i * (step * 0.15f) : 0f;
+            SpawnBullet(baseAngle + step * i + spiralOff);
+        }
+
+        attackLockTimer = 0.4f;
     }
 
     // ── Berserk Rush ──────────────────────────────────────────────────────────
 
     IEnumerator BerserkRush()
     {
-        berserkRunning = true;
-        state          = BossState.Berserk;
+        berserkRunning   = true;
+        berserkPlayerHit = false;
 
+        // Anticipation — red ramp before entering berserk
+        SetGlow(new Color(0.9f, 0.05f, 0.05f), 7f);
+        yield return new WaitForSeconds(0.25f);
+        if (state == BossState.Dead) { berserkRunning = false; yield break; }
+
+        state = BossState.Berserk;
         SetGlow(new Color(1f, 0.15f, 0.15f), 5f);
 
         // Red flash on body
@@ -669,10 +693,18 @@ public class ShadowBossAI : MonoBehaviour
         berserkRunning = false;
         if (rb != null) rb.linearVelocity = Vector2.zero;
         RestoreBaseColors();
-        SetGlow(new Color(0.45f, 0.60f, 0.85f), 0.6f);
 
         if (state == BossState.Berserk)
         {
+            // Vulnerability window — boss is open to punishment
+            state = BossState.Recover;
+            SetGlow(new Color(0.2f, 0.2f, 0.35f), 0.25f);
+            yield return new WaitForSeconds(1.0f);
+
+            if (!berserkPlayerHit)
+                StartCoroutine(GlowJitter()); // player dodged whole berserk
+
+            SetGlow(new Color(0.45f, 0.60f, 0.85f), 0.6f);
             state       = BossState.Idle;
             attackTimer = Random.Range(phase1AttackMin, phase1AttackMax);
         }
@@ -696,156 +728,6 @@ public class ShadowBossAI : MonoBehaviour
         bullet.tag = "EnemyBullet";
     }
 
-    // ── Phase 2 Sweep ─────────────────────────────────────────────────────────
-
-    IEnumerator SweepAttack()
-    {
-        if (rb != null) rb.linearVelocity = Vector2.zero;
-
-        // Build grey world overlay + screen warning UI
-        var overlay = BuildSweepOverlay();
-        var warnUI  = BuildSweepWarningUI();
-
-        SetGlow(new Color(0.85f, 0.85f, 0.85f), 5f);
-
-        float elapsed = 0f;
-        while (elapsed < sweepWarningDuration)
-        {
-            elapsed += Time.deltaTime;
-            float t     = elapsed / sweepWarningDuration;
-            float pulse = Mathf.PingPong(elapsed * 3.5f, 1f);
-
-            // Greyscale overlay pulses darker
-            if (overlay != null)
-            {
-                var sr  = overlay.GetComponent<SpriteRenderer>();
-                sr.color = new Color(0.65f, 0.65f, 0.65f, Mathf.Lerp(0.08f, 0.40f, pulse));
-            }
-
-            // Warning UI fades/pulses
-            if (warnUI != null)
-            {
-                float alpha = Mathf.Lerp(0.4f, 1f, pulse);
-                UpdateSweepWarningAlpha(warnUI, alpha);
-            }
-
-            yield return null;
-        }
-
-        // STRIKE — bright grey flash
-        if (overlay != null)
-            overlay.GetComponent<SpriteRenderer>().color = new Color(0.85f, 0.85f, 0.85f, 0.70f);
-
-        // Damage player unless dashing
-        if (playerTransform != null)
-        {
-            bool safe = playerMovement != null && playerMovement.IsDashing;
-            if (!safe)
-                playerTransform.GetComponent<PlayerHealth>()?.TakeDamage(sweepDamageToPlayer);
-        }
-
-        yield return new WaitForSeconds(0.15f);
-
-        // Destroy warning UI
-        if (warnUI != null) Destroy(warnUI);
-
-        // Fade out overlay
-        if (overlay != null)
-        {
-            var sr = overlay.GetComponent<SpriteRenderer>();
-            float t = 0f;
-            while (t < 0.45f && overlay != null)
-            {
-                t += Time.deltaTime;
-                var c = sr.color;
-                c.a = Mathf.Lerp(0.70f, 0f, t / 0.45f);
-                sr.color = c;
-                yield return null;
-            }
-            Destroy(overlay);
-        }
-
-        SetGlow(new Color(0.45f, 0.60f, 0.85f), 0.6f);
-        sweepScheduled = false;
-    }
-
-    GameObject BuildSweepOverlay()
-    {
-        var obj = new GameObject("UmbraSweepOverlay");
-        obj.transform.position = new Vector3(roomCenter.x, roomCenter.y, -0.5f);
-        var sr       = obj.AddComponent<SpriteRenderer>();
-        sr.sprite       = CreateSquareSprite();
-        sr.color        = new Color(0.6f, 0.6f, 0.6f, 0f);
-        sr.sortingOrder = 20;
-        float w = roomHalfSize.x * 2.4f;
-        float h = roomHalfSize.y * 2.4f;
-        obj.transform.localScale = new Vector3(w, h, 1f);
-        return obj;
-    }
-
-    // Screen-space warning canvas (no TMP needed)
-    GameObject BuildSweepWarningUI()
-    {
-        var canvasObj = new GameObject("SweepWarnCanvas");
-        var canvas    = canvasObj.AddComponent<Canvas>();
-        canvas.renderMode   = RenderMode.ScreenSpaceOverlay;
-        canvas.sortingOrder = 150;
-
-        var scaler                 = canvasObj.AddComponent<CanvasScaler>();
-        scaler.uiScaleMode         = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-        scaler.referenceResolution = new Vector2(1920f, 1080f);
-
-        // Edge-flash panels (top, bottom, left, right)
-        CreateEdgePanel(canvasObj, "Top",    new Vector2(0.5f, 1f), new Vector2(1f, 0f),   new Vector2(0f, -8f),  new Vector2(1920f, 18f));
-        CreateEdgePanel(canvasObj, "Bottom", new Vector2(0.5f, 0f), new Vector2(1f, 1f),   new Vector2(0f,  8f),  new Vector2(1920f, 18f));
-        CreateEdgePanel(canvasObj, "Left",   new Vector2(0f,  0.5f), new Vector2(1f, 0.5f), new Vector2( 8f, 0f), new Vector2(18f, 1080f));
-        CreateEdgePanel(canvasObj, "Right",  new Vector2(1f,  0.5f), new Vector2(0f, 0.5f), new Vector2(-8f, 0f), new Vector2(18f, 1080f));
-
-        // Centre warning text
-        var textObj = new GameObject("WarnText");
-        textObj.transform.SetParent(canvasObj.transform, false);
-        var textRT          = textObj.AddComponent<RectTransform>();
-        textRT.anchorMin    = new Vector2(0.5f, 0.75f);
-        textRT.anchorMax    = new Vector2(0.5f, 0.75f);
-        textRT.sizeDelta    = new Vector2(700f, 110f);
-        textRT.anchoredPosition = Vector2.zero;
-        var text            = textObj.AddComponent<Text>();
-        text.text           = "!! INCOMING - DASH TO SURVIVE !!";
-        text.fontSize       = 52;
-        text.fontStyle      = FontStyle.Bold;
-        text.alignment      = TextAnchor.MiddleCenter;
-        text.color          = new Color(0.9f, 0.9f, 0.9f, 1f);
-        var font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf")
-                ?? Resources.GetBuiltinResource<Font>("Arial.ttf");
-        if (font != null) text.font = font;
-
-        return canvasObj;
-    }
-
-    void CreateEdgePanel(GameObject parent, string name, Vector2 anchorMin, Vector2 anchorMax,
-                         Vector2 anchoredPos, Vector2 sizeDelta)
-    {
-        var obj  = new GameObject(name);
-        obj.transform.SetParent(parent.transform, false);
-        var rt   = obj.AddComponent<RectTransform>();
-        rt.anchorMin        = anchorMin;
-        rt.anchorMax        = anchorMin;
-        rt.pivot            = anchorMax;
-        rt.anchoredPosition = anchoredPos;
-        rt.sizeDelta        = sizeDelta;
-        var img  = obj.AddComponent<Image>();
-        img.color = new Color(0.85f, 0.85f, 0.85f, 1f);
-        img.raycastTarget = false;
-    }
-
-    void UpdateSweepWarningAlpha(GameObject ui, float alpha)
-    {
-        foreach (var img in ui.GetComponentsInChildren<Image>(true))
-            img.color = new Color(img.color.r, img.color.g, img.color.b, alpha);
-        foreach (var txt in ui.GetComponentsInChildren<Text>(true))
-            txt.color = new Color(txt.color.r, txt.color.g, txt.color.b, alpha);
-    }
-
     // ── Contact Damage (berserk) ──────────────────────────────────────────────
 
     void OnTriggerEnter2D(Collider2D other)
@@ -854,6 +736,7 @@ public class ShadowBossAI : MonoBehaviour
 
         if (state == BossState.Berserk && other.CompareTag("Player"))
         {
+            berserkPlayerHit = true;
             other.GetComponent<PlayerHealth>()?.TakeDamage(berserkContactDamage);
             return;
         }
@@ -867,7 +750,10 @@ public class ShadowBossAI : MonoBehaviour
         // Continuous contact damage during berserk (iFrames on PlayerHealth prevent spam)
         if (state == BossState.Dead || state != BossState.Berserk) return;
         if (other.CompareTag("Player"))
+        {
+            berserkPlayerHit = true;
             other.GetComponent<PlayerHealth>()?.TakeDamage(berserkContactDamage);
+        }
     }
 
     void ApplyDamage(float amount)
@@ -877,6 +763,7 @@ public class ShadowBossAI : MonoBehaviour
         if (healthBar != null) healthBar.SetHealth(health);
         DamageNumber.Spawn(Mathf.CeilToInt(amount), transform.position);
         StartCoroutine(HitFlash());
+        if (state == BossState.Recover) StartCoroutine(RecoveryStagger());
         if (health <= 0f) { StopAllCoroutines(); StartCoroutine(DeathSequence()); }
     }
 
@@ -913,12 +800,37 @@ public class ShadowBossAI : MonoBehaviour
                     if (allRenderers[i] != null)
                         allRenderers[i].color = Color.Lerp(
                             baseColors[i],
-                            new Color(0.9f, 0.9f, 1.0f, baseColors[i].a),
-                            t * 0.9f);
+                            new Color(1f, 1f, 1f, baseColors[i].a),
+                            t);
             SetGlow(Color.Lerp(new Color(0.45f, 0.60f, 0.85f), Color.white, t),
                     Mathf.Lerp(0.6f, 6f, t));
             yield return null;
         }
+    }
+
+    IEnumerator NearMissFlicker()
+    {
+        SetGlow(new Color(0.8f, 0.8f, 1f), 5f);
+        yield return new WaitForSeconds(0.1f);
+        SetGlow(new Color(0.45f, 0.60f, 0.85f), 0.6f);
+    }
+
+    IEnumerator GlowJitter()
+    {
+        for (int i = 0; i < 4; i++)
+        {
+            SetGlow(new Color(0.55f, 0.25f, 0.9f), 4f);
+            yield return new WaitForSeconds(0.07f);
+            SetGlow(new Color(0.45f, 0.60f, 0.85f), 0.6f);
+            yield return new WaitForSeconds(0.07f);
+        }
+    }
+
+    IEnumerator RecoveryStagger()
+    {
+        SetGlow(new Color(0.15f, 0.15f, 0.2f), 1.0f);
+        yield return new WaitForSeconds(0.12f);
+        SetGlow(new Color(0.45f, 0.60f, 0.85f), 0.6f);
     }
 
     IEnumerator HitFlash()
@@ -976,6 +888,7 @@ public class BossSlashHitbox : MonoBehaviour
     int  damage;
     bool hasHit;
 
+    public bool DidHit => hasHit;
     public void Init(int dmg) { damage = dmg; }
 
     void OnTriggerEnter2D(Collider2D other) => Evaluate(other);

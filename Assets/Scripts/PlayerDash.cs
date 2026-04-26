@@ -176,6 +176,38 @@ public class PlayerDash : MonoBehaviour
             }
         }
 
+        // Check Crimson boss by direct distance
+        var crimson = FindFirstObjectByType<CrimsonAI>();
+        if (crimson != null && crimson.IsInBattle)
+        {
+            int cid = crimson.gameObject.GetInstanceID();
+            if (!hitEnemiesThisDash.Contains(cid))
+            {
+                float dist = DistToSegment(crimson.transform.position, prevPos, currentPos);
+                if (dist <= contactRadius)
+                {
+                    hitEnemiesThisDash.Add(cid);
+                    crimson.TakeDashDamage(contactDamage);
+                    crimson.Stun(0.6f);
+                }
+            }
+        }
+
+        // Check Crimson clones by direct distance
+        var clones = FindObjectsByType<CrimsonClone>(FindObjectsSortMode.None);
+        foreach (var clone in clones)
+        {
+            if (clone == null) continue;
+            int cid = clone.gameObject.GetInstanceID();
+            if (hitEnemiesThisDash.Contains(cid)) continue;
+            float dist = DistToSegment(clone.transform.position, prevPos, currentPos);
+            if (dist <= contactRadius)
+            {
+                hitEnemiesThisDash.Add(cid);
+                clone.TakeDashHit();
+            }
+        }
+
         // Check all enemy bullets by direct distance
         var bullets = FindObjectsByType<Bullet>(FindObjectsSortMode.None);
         foreach (var bullet in bullets)

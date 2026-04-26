@@ -27,6 +27,8 @@ public class PlayerMovement : MonoBehaviour
     private float dashTimer;
     private float dashCooldownTimer;
     private Vector2 dashDirection;
+    private float   knockbackTimer;
+    private Vector2 knockbackVelocity;
     private LightEnergy lightEnergy;
 
     private int playerLayer;
@@ -159,8 +161,21 @@ public class PlayerMovement : MonoBehaviour
             Physics2D.IgnoreLayerCollision(playerLayer, enemyLayer, false);
     }
 
+    public void ApplyKnockback(Vector2 velocity, float duration)
+    {
+        knockbackVelocity = velocity;
+        knockbackTimer    = duration;
+    }
+
     void FixedUpdate()
     {
+        if (knockbackTimer > 0f)
+        {
+            knockbackTimer -= Time.fixedDeltaTime;
+            rb.linearVelocity = knockbackVelocity;
+            return;
+        }
+
         if (dashTimer > 0f) {
             rb.linearVelocity = dashDirection * dashSpeed;
         } else {

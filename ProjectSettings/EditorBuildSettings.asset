@@ -30,6 +30,15 @@ EditorBuildSettings:
     path: Assets/Scenes/VesperScene.unity
     guid: 3a92cd1b800cff143ba4027c8a593b03
   - enabled: 1
+    path: Assets/Scenes/ScarabScene.unity
+    guid: f1750e2ca072cfb438f7a48dc5dba6f7
+  - enabled: 1
+    path: Assets/Scenes/GoblinBossScene.unity
+    guid: 0d0b83b30423c4ce698a83daea099892
+  - enabled: 1
+    path: Assets/Scenes/IsshinBossScene.unity
+    guid: 5b68260103f654f49b4654f36206cf45
+  - enabled: 1
     path: Assets/Scenes/Level1.unity
     guid: 1df05cefd01254c5abafe6386b9ada24
   - enabled: 1

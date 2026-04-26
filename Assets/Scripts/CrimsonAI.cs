@@ -10,9 +10,10 @@ using System.Collections.Generic;
 /// Chases the player, fires scattered bullets periodically, spawns
 /// Type-1 (square red) minions at intervals, and poisons the player on contact.
 ///
-/// Auto-starts the fight after autoStartDelay seconds so the fight begins
-/// even if the arena trigger isn't crossed (e.g. when testing directly in
-/// the NewBoss1Scene).
+/// Clone Phase: at least twice per fight, boss teleports to center, spawns 5
+/// identical clones, all spread into a rotating circle. Player must find the
+/// real boss by hitting it — clones vanish when boss is found. During formation
+/// the boss is immune. In the circle, all are hittable.
 /// </summary>
 public class CrimsonAI : MonoBehaviour
 {
@@ -39,8 +40,8 @@ public class CrimsonAI : MonoBehaviour
     [SerializeField] float autoStartDelay = 2f;
 
     [Header("Scatter Bullets")]
-    [SerializeField] float scatterInterval       = 12f;
-    [SerializeField] float phase2ScatterInterval = 8f;
+    [SerializeField] float scatterInterval          = 12f;
+    [SerializeField] float phase2ScatterInterval    = 8f;
     [SerializeField] int   scatterBulletCount       = 8;
     [SerializeField] int   phase2ScatterBulletCount = 14;
     [SerializeField] GameObject bulletPrefab;
@@ -63,6 +64,15 @@ public class CrimsonAI : MonoBehaviour
     [SerializeField] float bulletDamage = 1f;
     [SerializeField] float slashDamage  = 3f;
 
+    [Header("Clone Phase")]
+    [SerializeField] int   cloneCount             = 5;
+    [SerializeField] float circleRadius           = 4.5f;
+    [SerializeField] float orbitSpeed             = 40f;        // deg/sec clockwise
+    [SerializeField] float formationMoveDuration  = 1.5f;
+    [SerializeField] float clonePhaseFirstTrigger = 35f;
+    [SerializeField] float clonePhaseInterval     = 45f;
+    [SerializeField] float cloneMinionInterval    = 12f;
+
     [Header("References")]
     [SerializeField] BossHealthBar healthBar;
     [SerializeField] BossIntroCam  bossIntroCam;
@@ -73,16 +83,23 @@ public class CrimsonAI : MonoBehaviour
 
     // ── State ───────────────────────────────────────────────────────────────────
 
-    enum BossState { Dormant, InBattle, Dead }
+    enum BossState { Dormant, InBattle, CloningFormation, CircleRotating, Dead }
     BossState state = BossState.Dormant;
 
     float health;
-    float moveTimer;         // counts down; boss only chases once this hits 0
+    float moveTimer;
     float scatterTimer;
     float spawnTimer;
     float teleportTimer;
+    float clonePhaseTimer;
+    float orbitAngle;
+    float stunTimer;
+    bool  immune;
+    Coroutine hitFlashCoroutine;
 
     bool introScheduled = false;
+
+    readonly List<CrimsonClone> activeClones = new List<CrimsonClone>();
 
     Transform   playerTransform;
     Rigidbody2D rb;
@@ -99,8 +116,6 @@ public class CrimsonAI : MonoBehaviour
     void Start()
     {
         playerTransform = GameObject.FindGameObjectWithTag("Player")?.transform;
-
-        // Auto-start so the boss fights even without the arena trigger.
         StartCoroutine(AutoStartAfterDelay());
     }
 
@@ -115,17 +130,23 @@ public class CrimsonAI : MonoBehaviour
 
     void BuildVisuals()
     {
+        // Disable ALL Light2Ds in this hierarchy — but preserve any lights that
+        // belong to the BossHealthBar or BossIntroCam subtrees (scene-placed UI).
+        foreach (var l in GetComponentsInChildren<Light2D>(true))
+        {
+            if (healthBar   != null && l.transform.IsChildOf(healthBar.transform))   continue;
+            if (bossIntroCam != null && l.transform.IsChildOf(bossIntroCam.transform)) continue;
+            l.enabled = false;
+        }
+
+        // Deactivate legacy eye children from old prefab iterations.
+        foreach (Transform child in transform)
+            if (child.name == "EyeLeft" || child.name == "EyeRight")
+                child.gameObject.SetActive(false);
+
         Sprite sq  = CreateSquareSprite();
         Material m = GetUnlitMat();
 
-        // Deactivate legacy Vesper eye children
-        foreach (Transform child in transform)
-        {
-            if (child.name == "EyeLeft" || child.name == "EyeRight")
-                child.gameObject.SetActive(false);
-        }
-
-        // Body — existing SpriteRenderer on this GameObject
         var bodySR = GetComponent<SpriteRenderer>();
         if (bodySR != null)
         {
@@ -135,27 +156,42 @@ public class CrimsonAI : MonoBehaviour
             bodySR.sortingOrder = 5;
         }
 
-        // Eyes — dark red squares in the upper half
         AddChildSprite("CrimsonEyeLeft",  new Vector3(-0.42f,  0.32f, -0.1f), new Vector3(0.48f, 0.48f, 1f), EyeRed, sq, m, 6);
         AddChildSprite("CrimsonEyeRight", new Vector3( 0.42f,  0.32f, -0.1f), new Vector3(0.48f, 0.48f, 1f), EyeRed, sq, m, 6);
+        AddChildSprite("CrimsonArmLeft",  new Vector3(-1.30f, 0f, -0.05f),    new Vector3(0.70f, 0.40f, 1f), ArmRed, sq, m, 5);
+        AddChildSprite("CrimsonArmRight", new Vector3( 1.30f, 0f, -0.05f),    new Vector3(0.70f, 0.40f, 1f), ArmRed, sq, m, 5);
+    }
 
-        // Arms — wide flat rectangles on each side
-        AddChildSprite("CrimsonArmLeft",  new Vector3(-1.30f, 0f, -0.05f), new Vector3(0.70f, 0.40f, 1f), ArmRed, sq, m, 5);
-        AddChildSprite("CrimsonArmRight", new Vector3( 1.30f, 0f, -0.05f), new Vector3(0.70f, 0.40f, 1f), ArmRed, sq, m, 5);
+    // Builds the Crimson visual hierarchy on any root transform (used for clones too).
+    static void BuildCrimsonVisuals(GameObject root)
+    {
+        Sprite sq  = CreateSquareSprite();
+        Material m = GetUnlitMat();
+
+        var bodySR = root.GetComponent<SpriteRenderer>();
+        if (bodySR == null) bodySR = root.AddComponent<SpriteRenderer>();
+        bodySR.sprite       = sq;
+        bodySR.color        = BodyRed;
+        bodySR.material     = m;
+        bodySR.sortingOrder = 5;
+
+        AddChildSpriteStatic(root.transform, "CrimsonEyeLeft",  new Vector3(-0.42f,  0.32f, -0.1f), new Vector3(0.48f, 0.48f, 1f), EyeRed, sq, m, 6);
+        AddChildSpriteStatic(root.transform, "CrimsonEyeRight", new Vector3( 0.42f,  0.32f, -0.1f), new Vector3(0.48f, 0.48f, 1f), EyeRed, sq, m, 6);
+        AddChildSpriteStatic(root.transform, "CrimsonArmLeft",  new Vector3(-1.30f, 0f, -0.05f),    new Vector3(0.70f, 0.40f, 1f), ArmRed, sq, m, 5);
+        AddChildSpriteStatic(root.transform, "CrimsonArmRight", new Vector3( 1.30f, 0f, -0.05f),    new Vector3(0.70f, 0.40f, 1f), ArmRed, sq, m, 5);
     }
 
     void AddChildSprite(string n, Vector3 pos, Vector3 scale, Color color, Sprite sprite, Material mat, int order)
+        => AddChildSpriteStatic(transform, n, pos, scale, color, sprite, mat, order);
+
+    static void AddChildSpriteStatic(Transform parent, string n, Vector3 pos, Vector3 scale, Color color, Sprite sprite, Material mat, int order)
     {
         var go = new GameObject(n);
-        go.transform.SetParent(transform, false);
+        go.transform.SetParent(parent, false);
         go.transform.localPosition = pos;
         go.transform.localScale    = scale;
-
         var sr = go.AddComponent<SpriteRenderer>();
-        sr.sprite       = sprite;
-        sr.color        = color;
-        sr.material     = mat;
-        sr.sortingOrder = order;
+        sr.sprite = sprite; sr.color = color; sr.material = mat; sr.sortingOrder = order;
     }
 
     static Sprite CreateSquareSprite()
@@ -172,7 +208,6 @@ public class CrimsonAI : MonoBehaviour
     {
         if (_unlitMat == null)
         {
-            // Prefer the explicit unlit sprite shader; fall back to legacy Sprites/Default
             var shader = Shader.Find("Universal Render Pipeline/2D/Sprite-Unlit-Default")
                       ?? Shader.Find("Sprites/Default");
             if (shader != null) _unlitMat = new Material(shader);
@@ -180,7 +215,7 @@ public class CrimsonAI : MonoBehaviour
         return _unlitMat;
     }
 
-    // ── Public API (called by CrimsonArenaTrigger) ──────────────────────────────
+    // ── Public API ──────────────────────────────────────────────────────────────
 
     public bool TryScheduleIntro()
     {
@@ -196,25 +231,84 @@ public class CrimsonAI : MonoBehaviour
         if (state != BossState.Dormant) return;
         state = BossState.InBattle;
 
-        if (healthBar != null)
-        {
-            healthBar.Initialize(maxHealth);
-            healthBar.Show();
-        }
+        if (healthBar != null) { healthBar.Initialize(maxHealth); healthBar.Show(); }
 
-        moveTimer     = moveDelay;
-        scatterTimer  = scatterInterval;
-        spawnTimer    = spawnInterval;
-        teleportTimer = NextTeleportInterval();
+        moveTimer       = moveDelay;
+        scatterTimer    = scatterInterval;
+        spawnTimer      = spawnInterval;
+        teleportTimer   = NextTeleportInterval();
+        clonePhaseTimer = clonePhaseFirstTrigger;
     }
 
-    public bool IsInBattle => state == BossState.InBattle;
+    public bool IsInBattle     => state == BossState.InBattle || state == BossState.CircleRotating;
+    public bool IsInClonePhase => state == BossState.CircleRotating;
+
+    public void Stun(float duration)
+    {
+        if (state == BossState.CircleRotating || state == BossState.Dormant || state == BossState.Dead) return;
+        stunTimer = Mathf.Max(stunTimer, duration);
+        if (rb != null) rb.linearVelocity = Vector2.zero;
+        StartCoroutine(StunFlash());
+    }
+
+    IEnumerator StunFlash()
+    {
+        var sr = GetComponent<SpriteRenderer>();
+        if (sr == null) yield break;
+        // Pulse blue-white to distinguish from damage (red) flash
+        Color stunCol = new Color(0.5f, 0.8f, 1f);
+        float elapsed = 0f, dur = stunTimer;
+        while (elapsed < dur)
+        {
+            elapsed += Time.deltaTime;
+            if (sr != null) sr.color = Color.Lerp(stunCol, BodyRed, elapsed / dur);
+            yield return null;
+        }
+        if (sr != null) sr.color = BodyRed;
+    }
+
+    public void TakeDashDamage(float amount) => ApplyDamage(amount);
+
+    // Called by CrimsonClone when all clones die without player finding boss.
+    public void OnCloneKilled(CrimsonClone clone)
+    {
+        activeClones.Remove(clone);
+        if (activeClones.Count == 0 && state == BossState.CircleRotating)
+            EndClonePhase();
+    }
+
+    // Called by CrimsonClone when player's dash hits a clone.
+    public void OnCloneDashHit(CrimsonClone clone) => clone.DieWithEffect();
+
+    // Spawns a single minion at the given position (used by clones during circle).
+    public void SpawnMinionAt(Vector2 pos)
+    {
+        if (enemyPrefab == null) return;
+        Vector2 offset = Random.insideUnitCircle.normalized * 2.5f;
+        var enemy = Instantiate(enemyPrefab, ClampToRoom(pos + offset), Quaternion.identity);
+        enemy.GetComponent<EnemyAI>()?.ActivateHunt();
+    }
 
     // ── FixedUpdate — movement ───────────────────────────────────────────────────
 
     void FixedUpdate()
     {
+        if (state == BossState.CircleRotating)
+        {
+            orbitAngle -= orbitSpeed * Time.fixedDeltaTime;
+            if (orbitAngle < -360f) orbitAngle += 360f;
+            UpdateOrbitPositions();
+            return;
+        }
+
         if (state != BossState.InBattle) return;
+
+        if (stunTimer > 0f)
+        {
+            stunTimer -= Time.fixedDeltaTime;
+            if (rb != null) rb.linearVelocity = Vector2.zero;
+            return;
+        }
 
         if (moveTimer > 0f)
         {
@@ -229,48 +323,225 @@ public class CrimsonAI : MonoBehaviour
     void MoveTowardPlayer()
     {
         if (playerTransform == null || rb == null) return;
-
         float dist = Vector2.Distance(transform.position, playerTransform.position);
-        if (dist <= stopDistance)
-        {
-            rb.linearVelocity = Vector2.zero;
-            return;
-        }
-
-        float  speed = IsPhase2 ? phase2MoveSpeed : moveSpeed;
-        Vector2 dir  = ((Vector2)playerTransform.position - (Vector2)transform.position).normalized;
+        if (dist <= stopDistance) { rb.linearVelocity = Vector2.zero; return; }
+        float   speed = IsPhase2 ? phase2MoveSpeed : moveSpeed;
+        Vector2 dir   = ((Vector2)playerTransform.position - (Vector2)transform.position).normalized;
         rb.linearVelocity = dir * speed;
+    }
+
+    void UpdateOrbitPositions()
+    {
+        int total = activeClones.Count + 1;
+        for (int i = 0; i < total; i++)
+        {
+            float   a   = (orbitAngle + i * 360f / total) * Mathf.Deg2Rad;
+            Vector2 pos = (Vector2)roomCenter + new Vector2(Mathf.Cos(a), Mathf.Sin(a)) * circleRadius;
+            if (i == 0)
+            {
+                if (rb != null) rb.MovePosition(pos);
+            }
+            else
+            {
+                var clone = activeClones[i - 1];
+                if (clone != null) clone.transform.position = pos;
+            }
+        }
     }
 
     // ── Update — timers ─────────────────────────────────────────────────────────
 
     void Update()
     {
-        if (state != BossState.InBattle) return;
-
-        // Scatter attack
-        scatterTimer -= Time.deltaTime;
-        if (scatterTimer <= 0f)
+        if (state == BossState.InBattle)
         {
-            FireScatter();
-            scatterTimer = IsPhase2 ? phase2ScatterInterval : scatterInterval;
+            if (stunTimer > 0f) return;
+
+            scatterTimer -= Time.deltaTime;
+            if (scatterTimer <= 0f)
+            {
+                FireScatter();
+                scatterTimer = IsPhase2 ? phase2ScatterInterval : scatterInterval;
+            }
+
+            spawnTimer -= Time.deltaTime;
+            if (spawnTimer <= 0f)
+            {
+                TrySpawnMinions();
+                spawnTimer = IsPhase2 ? phase2SpawnInterval : spawnInterval;
+            }
+
+            teleportTimer -= Time.deltaTime;
+            if (teleportTimer <= 0f)
+            {
+                StartCoroutine(TeleportSequence());
+                teleportTimer = NextTeleportInterval();
+            }
+
+            clonePhaseTimer -= Time.deltaTime;
+            if (clonePhaseTimer <= 0f)
+            {
+                clonePhaseTimer = float.MaxValue; // prevent re-trigger until EndClonePhase resets it
+                StopAllCoroutines();
+                StartCoroutine(ClonePhase());
+            }
         }
 
-        // Minion spawning
-        spawnTimer -= Time.deltaTime;
-        if (spawnTimer <= 0f)
+        if (state == BossState.CircleRotating)
         {
-            TrySpawnMinions();
-            spawnTimer = IsPhase2 ? phase2SpawnInterval : spawnInterval;
+            // Boss + clones emit minions at low frequency during the circle.
+            spawnTimer -= Time.deltaTime;
+            if (spawnTimer <= 0f)
+            {
+                spawnTimer = cloneMinionInterval;
+                // Spawn from a random entity in the circle.
+                int idx = Random.Range(0, activeClones.Count + 1);
+                Vector2 pos = idx == 0 ? (Vector2)transform.position : activeClones[idx - 1].transform.position;
+                SpawnMinionAt(pos);
+            }
+        }
+    }
+
+    // ── Clone Phase ─────────────────────────────────────────────────────────────
+
+    IEnumerator ClonePhase()
+    {
+        state  = BossState.CloningFormation;
+        immune = true;
+        if (rb != null) rb.linearVelocity = Vector2.zero;
+
+        // Teleport boss to room center
+        yield return StartCoroutine(FadeAndMoveTo(roomCenter));
+
+        // Rapid flash as warning
+        yield return StartCoroutine(CloneFlash());
+
+        // Spawn clones at center
+        activeClones.Clear();
+        for (int i = 0; i < cloneCount; i++)
+            activeClones.Add(SpawnClone((Vector2)roomCenter));
+
+        // Calculate the spread-out circle targets (boss = slot 0)
+        int      total   = cloneCount + 1;
+        orbitAngle       = 90f;
+        var targets      = new Vector2[total];
+        for (int i = 0; i < total; i++)
+        {
+            float a  = (orbitAngle + i * 360f / total) * Mathf.Deg2Rad;
+            targets[i] = (Vector2)roomCenter + new Vector2(Mathf.Cos(a), Mathf.Sin(a)) * circleRadius;
         }
 
-        // Teleport
-        teleportTimer -= Time.deltaTime;
-        if (teleportTimer <= 0f)
+        // Animate spreading outward
+        float   elapsed = 0f;
+        while (elapsed < formationMoveDuration)
         {
-            StartCoroutine(TeleportSequence());
-            teleportTimer = NextTeleportInterval();
+            elapsed += Time.deltaTime;
+            float t = Mathf.SmoothStep(0f, 1f, elapsed / formationMoveDuration);
+
+            if (rb != null) rb.MovePosition(Vector2.Lerp(roomCenter, targets[0], t));
+
+            for (int i = 0; i < activeClones.Count; i++)
+                if (activeClones[i] != null)
+                    activeClones[i].transform.position = Vector2.Lerp(roomCenter, targets[i + 1], t);
+
+            yield return null;
         }
+
+        // Snap final positions
+        transform.position = targets[0];
+        for (int i = 0; i < activeClones.Count; i++)
+            if (activeClones[i] != null)
+                activeClones[i].transform.position = targets[i + 1];
+
+        immune             = false;
+        state              = BossState.CircleRotating;
+        spawnTimer         = cloneMinionInterval;
+    }
+
+    IEnumerator FadeAndMoveTo(Vector2 destination)
+    {
+        var srs  = GetComponentsInChildren<SpriteRenderer>(true);
+        var orig = new Color[srs.Length];
+        for (int i = 0; i < srs.Length; i++) if (srs[i] != null) orig[i] = srs[i].color;
+
+        float dur = 0.2f, elapsed = 0f;
+        while (elapsed < dur)
+        {
+            elapsed += Time.deltaTime;
+            float t = elapsed / dur;
+            for (int i = 0; i < srs.Length; i++)
+                if (srs[i] != null) { var c = orig[i]; c.a = 1f - t; srs[i].color = c; }
+            yield return null;
+        }
+
+        if (rb != null) rb.linearVelocity = Vector2.zero;
+        transform.position = destination;
+
+        elapsed = 0f;
+        while (elapsed < dur)
+        {
+            elapsed += Time.deltaTime;
+            float t = elapsed / dur;
+            for (int i = 0; i < srs.Length; i++)
+                if (srs[i] != null) { var c = orig[i]; c.a = t; srs[i].color = c; }
+            yield return null;
+        }
+
+        for (int i = 0; i < srs.Length; i++) if (srs[i] != null) srs[i].color = orig[i];
+    }
+
+    IEnumerator CloneFlash()
+    {
+        var srs  = GetComponentsInChildren<SpriteRenderer>(true);
+        var orig = new Color[srs.Length];
+        for (int i = 0; i < srs.Length; i++) if (srs[i] != null) orig[i] = srs[i].color;
+
+        for (int f = 0; f < 5; f++)
+        {
+            foreach (var sr in srs) if (sr != null) sr.color = Color.white;
+            yield return new WaitForSeconds(0.08f);
+            for (int i = 0; i < srs.Length; i++) if (srs[i] != null) srs[i].color = orig[i];
+            yield return new WaitForSeconds(0.08f);
+        }
+    }
+
+    CrimsonClone SpawnClone(Vector2 pos)
+    {
+        var go = new GameObject("CrimsonClone");
+        go.transform.position   = pos;
+        go.transform.localScale = transform.localScale;
+
+        BuildCrimsonVisuals(go);
+
+        // Collider matching boss size
+        var bossColl  = GetComponent<BoxCollider2D>();
+        var cloneColl = go.AddComponent<BoxCollider2D>();
+        cloneColl.isTrigger = true;
+        if (bossColl != null) cloneColl.size = bossColl.size;
+
+        var clone = go.AddComponent<CrimsonClone>();
+        clone.Init(this, cloneMinionInterval);
+        return clone;
+    }
+
+    void KillAllClonesWithEffect()
+    {
+        // Iterate over a copy so removal during iteration is safe.
+        var snapshot = new List<CrimsonClone>(activeClones);
+        activeClones.Clear();
+        foreach (var clone in snapshot)
+            if (clone != null)
+                clone.DieWithEffect();
+    }
+
+    void EndClonePhase()
+    {
+        state           = BossState.InBattle;
+        moveTimer       = 0f;
+        scatterTimer    = IsPhase2 ? phase2ScatterInterval : scatterInterval;
+        spawnTimer      = IsPhase2 ? phase2SpawnInterval   : spawnInterval;
+        teleportTimer   = NextTeleportInterval();
+        clonePhaseTimer = clonePhaseInterval;
     }
 
     // ── Scatter Attack ──────────────────────────────────────────────────────────
@@ -278,7 +549,6 @@ public class CrimsonAI : MonoBehaviour
     void FireScatter()
     {
         if (bulletPrefab == null) return;
-
         int   count     = IsPhase2 ? phase2ScatterBulletCount : scatterBulletCount;
         float angleStep = 360f / count;
 
@@ -286,24 +556,9 @@ public class CrimsonAI : MonoBehaviour
         {
             float rotation = angleStep * i - 90f;
             var bullet = Instantiate(bulletPrefab, transform.position, Quaternion.Euler(0f, 0f, rotation));
-
-            // Force unlit rendering so bullets are visible in the dark scene
             var sr = bullet.GetComponent<SpriteRenderer>();
-            if (sr != null)
-            {
-                sr.material     = GetUnlitMat();
-                sr.color        = new Color(1f, 0.25f, 0.1f);
-                sr.sortingOrder = 12;
-            }
-
-            // Add a glow so bullets are obvious
-            var glow = bullet.AddComponent<Light2D>();
-            glow.lightType               = Light2D.LightType.Point;
-            glow.color                   = new Color(1f, 0.2f, 0.1f);
-            glow.intensity               = 1.2f;
-            glow.pointLightOuterRadius   = 0.9f;
-            glow.pointLightInnerRadius   = 0.2f;
-            glow.shadowsEnabled          = false;
+            if (sr != null) { sr.material = GetUnlitMat(); sr.color = new Color(1f, 0.25f, 0.1f); sr.sortingOrder = 12; }
+            // No extra Light2D added — stacking 8-14 lights at spawn position washes the boss white.
         }
     }
 
@@ -312,24 +567,25 @@ public class CrimsonAI : MonoBehaviour
     void TrySpawnMinions()
     {
         if (enemyPrefab == null) return;
-
         var alive = FindObjectsByType<EnemyHealth>(FindObjectsSortMode.None);
         int limit  = IsPhase2 ? phase2MaxMinions : maxMinions;
         if (alive.Length >= limit) return;
-
         int count = IsPhase2 ? 2 : 1;
         for (int i = 0; i < count && alive.Length + i < limit; i++)
         {
-            Vector2 pos   = GetMinionSpawnPos();
-            var     enemy = Instantiate(enemyPrefab, pos, Quaternion.identity);
+            Vector2 offset = Random.insideUnitCircle.normalized * 2.5f;
+            Vector2 pos    = ClampToRoom((Vector2)transform.position + offset);
+            var enemy = Instantiate(enemyPrefab, pos, Quaternion.identity);
             enemy.GetComponent<EnemyAI>()?.ActivateHunt();
         }
     }
 
-    Vector2 GetMinionSpawnPos()
+    Vector2 ClampToRoom(Vector2 pos)
     {
-        // Spawn at the boss's current position (enemies emerge from inside Crimson)
-        return (Vector2)transform.position;
+        const float margin = 1f;
+        return new Vector2(
+            Mathf.Clamp(pos.x, roomCenter.x - roomHalfSize.x + margin, roomCenter.x + roomHalfSize.x - margin),
+            Mathf.Clamp(pos.y, roomCenter.y - roomHalfSize.y + margin, roomCenter.y + roomHalfSize.y - margin));
     }
 
     // ── Teleport ────────────────────────────────────────────────────────────────
@@ -343,10 +599,8 @@ public class CrimsonAI : MonoBehaviour
 
     IEnumerator TeleportSequence()
     {
-        // Brief fade-out
         var renderers   = GetComponentsInChildren<SpriteRenderer>(true);
-        float fadeOut   = 0.15f;
-        float elapsed   = 0f;
+        float fadeOut   = 0.15f, elapsed = 0f;
         var   startCols = new Color[renderers.Length];
         for (int i = 0; i < renderers.Length; i++) startCols[i] = renderers[i].color;
 
@@ -355,18 +609,13 @@ public class CrimsonAI : MonoBehaviour
             elapsed += Time.deltaTime;
             float t = elapsed / fadeOut;
             for (int i = 0; i < renderers.Length; i++)
-            {
-                if (renderers[i] == null) continue;
-                var c = startCols[i]; c.a = Mathf.Lerp(1f, 0f, t); renderers[i].color = c;
-            }
+            { if (renderers[i] == null) continue; var c = startCols[i]; c.a = Mathf.Lerp(1f, 0f, t); renderers[i].color = c; }
             yield return null;
         }
 
-        // Move to new position
         if (rb != null) rb.linearVelocity = Vector2.zero;
         transform.position = FindTeleportPosition();
 
-        // Brief fade-in
         float fadeIn = 0.15f;
         elapsed = 0f;
         while (elapsed < fadeIn)
@@ -374,26 +623,17 @@ public class CrimsonAI : MonoBehaviour
             elapsed += Time.deltaTime;
             float t = elapsed / fadeIn;
             for (int i = 0; i < renderers.Length; i++)
-            {
-                if (renderers[i] == null) continue;
-                var c = startCols[i]; c.a = Mathf.Lerp(0f, 1f, t); renderers[i].color = c;
-            }
+            { if (renderers[i] == null) continue; var c = startCols[i]; c.a = Mathf.Lerp(0f, 1f, t); renderers[i].color = c; }
             yield return null;
         }
 
-        // Restore full alpha
         for (int i = 0; i < renderers.Length; i++)
-        {
-            if (renderers[i] == null) continue;
-            var c = startCols[i]; c.a = 1f; renderers[i].color = c;
-        }
+        { if (renderers[i] == null) continue; var c = startCols[i]; c.a = 1f; renderers[i].color = c; }
     }
 
     Vector2 FindTeleportPosition()
     {
         Vector2 playerPos = playerTransform != null ? (Vector2)playerTransform.position : roomCenter;
-
-        // Build corner candidates (inset slightly from walls)
         Vector2 inset = roomHalfSize * 0.85f;
         Vector2[] corners = new Vector2[]
         {
@@ -402,22 +642,14 @@ public class CrimsonAI : MonoBehaviour
             roomCenter + new Vector2(-inset.x,  inset.y),
             roomCenter + new Vector2( inset.x,  inset.y),
         };
-
-        // Shuffle corners
         for (int i = corners.Length - 1; i > 0; i--)
         {
             int j = Random.Range(0, i + 1);
             (corners[i], corners[j]) = (corners[j], corners[i]);
         }
-
-        // Pick first corner that is far enough from player
         foreach (var corner in corners)
-        {
             if (Vector2.Distance(corner, playerPos) >= teleportMinDistFromPlayer)
                 return corner;
-        }
-
-        // Fallback: opposite side of room from player
         Vector2 away = (roomCenter - playerPos).normalized;
         if (away == Vector2.zero) away = Vector2.up;
         return roomCenter + away * inset;
@@ -427,7 +659,9 @@ public class CrimsonAI : MonoBehaviour
 
     void OnTriggerEnter2D(Collider2D other)
     {
-        if (state != BossState.InBattle) return;
+        if (state == BossState.Dormant || state == BossState.Dead) return;
+        if (immune) return;
+        if (state == BossState.CloningFormation) return;
 
         if (other.CompareTag("Bullet"))
         {
@@ -437,29 +671,35 @@ public class CrimsonAI : MonoBehaviour
         }
 
         if (other.CompareTag("LightSource") && other.GetComponent<SlashBulletDeflector>() != null)
-        {
             ApplyDamage(slashDamage);
-            return;
-        }
     }
 
     // ── Damage ──────────────────────────────────────────────────────────────────
 
     void ApplyDamage(float amount)
     {
-        if (state != BossState.InBattle) return;
+        if (state == BossState.Dormant || state == BossState.Dead) return;
+        if (immune) return;
+
+        // Real boss found during circle — kill all clones, resume fight.
+        if (state == BossState.CircleRotating)
+        {
+            KillAllClonesWithEffect();
+            EndClonePhase();
+        }
 
         health -= amount;
         health  = Mathf.Max(health, 0f);
 
         if (healthBar != null) healthBar.SetHealth(health);
-
         DamageNumber.Spawn(Mathf.CeilToInt(amount), transform.position);
-        StartCoroutine(HitFlash());
+        if (hitFlashCoroutine != null) StopCoroutine(hitFlashCoroutine);
+        hitFlashCoroutine = StartCoroutine(HitFlash());
 
         if (health <= 0f)
         {
             StopAllCoroutines();
+            KillAllClonesWithEffect();
             StartCoroutine(DeathSequence());
         }
     }
@@ -468,10 +708,12 @@ public class CrimsonAI : MonoBehaviour
     {
         var sr = GetComponent<SpriteRenderer>();
         if (sr == null) yield break;
-        Color orig = sr.color;
         sr.color = Color.white;
         yield return new WaitForSeconds(0.08f);
-        if (sr != null) sr.color = orig;
+        // Always restore to the known body colour — never read sr.color as "orig"
+        // because a concurrent flash would have left it white.
+        if (sr != null) sr.color = BodyRed;
+        hitFlashCoroutine = null;
     }
 
     bool IsPhase2 => health <= phase2HPThreshold;
@@ -488,12 +730,10 @@ public class CrimsonAI : MonoBehaviour
 
         var renderers   = GetComponentsInChildren<SpriteRenderer>(true);
         var startColors = new Color[renderers.Length];
-        for (int i = 0; i < renderers.Length; i++)
-            startColors[i] = renderers[i].color;
+        for (int i = 0; i < renderers.Length; i++) startColors[i] = renderers[i].color;
 
         float elapsed = 0f;
         const float duration = 1.8f;
-
         while (elapsed < duration)
         {
             elapsed += Time.deltaTime;
@@ -501,9 +741,7 @@ public class CrimsonAI : MonoBehaviour
             for (int i = 0; i < renderers.Length; i++)
             {
                 if (renderers[i] == null) continue;
-                var c = startColors[i];
-                c.a = Mathf.Lerp(1f, 0f, t);
-                renderers[i].color = c;
+                var c = startColors[i]; c.a = Mathf.Lerp(1f, 0f, t); renderers[i].color = c;
             }
             yield return null;
         }
@@ -514,6 +752,97 @@ public class CrimsonAI : MonoBehaviour
             yield return StartCoroutine(bossIntroCam.PanBackToPlayer(playerTransform));
 
         GameManager.Instance?.BossDefeated();
+        Destroy(gameObject);
+    }
+}
+
+// ── CrimsonClone ─────────────────────────────────────────────────────────────
+
+public class CrimsonClone : MonoBehaviour
+{
+    CrimsonAI boss;
+    float     minionTimer;
+    float     minionInterval;
+    bool      dying;
+
+    public void Init(CrimsonAI boss, float minionInterval)
+    {
+        this.boss           = boss;
+        this.minionInterval = minionInterval;
+        minionTimer         = minionInterval * Random.Range(0.5f, 1f); // stagger initial spawn
+    }
+
+    void Update()
+    {
+        if (dying) return;
+        minionTimer -= Time.deltaTime;
+        if (minionTimer <= 0f)
+        {
+            minionTimer = minionInterval;
+            boss?.SpawnMinionAt(transform.position);
+        }
+    }
+
+    void OnTriggerEnter2D(Collider2D other)
+    {
+        if (dying) return;
+
+        if (other.CompareTag("Bullet"))
+        {
+            Destroy(other.gameObject);
+            DieWithEffect();
+            return;
+        }
+
+        if (other.CompareTag("LightSource") && other.GetComponent<SlashBulletDeflector>() != null)
+            DieWithEffect();
+    }
+
+    // Called by PlayerDash when a dash hits this clone.
+    public void TakeDashHit()
+    {
+        if (!dying) DieWithEffect();
+    }
+
+    public void DieWithEffect()
+    {
+        if (dying) return;
+        dying = true;
+        boss?.OnCloneKilled(this);
+        StartCoroutine(DeathBurst());
+    }
+
+    IEnumerator DeathBurst()
+    {
+        // Disable collider immediately so no double-hits.
+        var col = GetComponent<Collider2D>();
+        if (col != null) col.enabled = false;
+
+        var srs      = GetComponentsInChildren<SpriteRenderer>(true);
+        var origCols = new Color[srs.Length];
+        for (int i = 0; i < srs.Length; i++) if (srs[i] != null) origCols[i] = srs[i].color;
+
+        float elapsed = 0f, dur = 0.45f;
+        while (elapsed < dur)
+        {
+            elapsed += Time.deltaTime;
+            float t = elapsed / dur;
+
+            // Expand outward + flash orange-red then fade
+            transform.localScale = Vector3.Lerp(Vector3.one, Vector3.one * 2.8f, t);
+            for (int i = 0; i < srs.Length; i++)
+            {
+                if (srs[i] == null) continue;
+                Color c = origCols[i];
+                c.r = Mathf.Lerp(c.r, 1f,   t);
+                c.g = Mathf.Lerp(c.g, 0.4f, t);
+                c.b = Mathf.Lerp(c.b, 0f,   t);
+                c.a = Mathf.Lerp(1f,  0f,   t);
+                srs[i].color = c;
+            }
+            yield return null;
+        }
+
         Destroy(gameObject);
     }
 }
