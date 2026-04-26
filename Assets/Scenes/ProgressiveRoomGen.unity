@@ -213,7 +213,7 @@ MonoBehaviour:
   skitterFraction: 0.3
   trapPrefab: {fileID: 8734501928374650001, guid: fab441304dbe74efda05301866f37865, type: 3}
   keyPrefab: {fileID: 2788963024019888239, guid: 898eb717fa5aa493388ed28daed49fbe, type: 3}
-  bossRoomInterval: 3
+  bossRoomInterval: 5
   bossSceneNames:
   - VesperScene
   - ScarabScene
