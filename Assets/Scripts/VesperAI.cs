@@ -829,12 +829,7 @@ public class VesperAI : MonoBehaviour
     void ApplyBossFightPlayerBuff()
     {
         if (playerBuffApplied) return;
-
-        var playerHealth = playerTransform != null ? playerTransform.GetComponent<PlayerHealth>() : null;
-        playerHealth?.AddMaxHealth(2);
-
         PlayerAmmo.Instance?.AddMaxFlashes(2);
-
         playerBuffApplied = true;
     }
 

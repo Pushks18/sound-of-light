@@ -196,9 +196,6 @@ MonoBehaviour:
   trapGrowthPerRoom: 0.5
   maxEnemies: 20
   maxTraps: 12
-  healPerFloor: 3
-  healDecay: 1
-  minHeal: 1
   spawnFlashRadius: 10
   minDistBetweenEnemies: 4
   spawnFlashIntensity: 2
@@ -213,10 +210,10 @@ MonoBehaviour:
     preferChokepoints: 1
   enemyPrefab: {fileID: 1660624364064054240, guid: cc69393cf33acc94b905039bfa9b28e9, type: 3}
   skitterPrefab: {fileID: 1000000, guid: b1c2d3e4f5067890123456789bcdef02, type: 3}
-  skitterFraction: 0.6
+  skitterFraction: 0.3
   trapPrefab: {fileID: 8734501928374650001, guid: fab441304dbe74efda05301866f37865, type: 3}
   keyPrefab: {fileID: 2788963024019888239, guid: 898eb717fa5aa493388ed28daed49fbe, type: 3}
-  bossRoomInterval: 5
+  bossRoomInterval: 3
   bossSceneNames:
   - VesperScene
   - ScarabScene
@@ -252,6 +249,7 @@ MonoBehaviour:
   triTipY: 0.9
   triBaseX: 0.7
   triBaseY: -0.7
+  visualScale: 1
   moveSpeed: 3
   panicSpeed: 6
   fleeRange: 4

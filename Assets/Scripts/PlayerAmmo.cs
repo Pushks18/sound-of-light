@@ -226,6 +226,13 @@ public class PlayerAmmo : MonoBehaviour
         return sb.ToString();
     }
 
+    public void RefillBullets()
+    {
+        Bullets = maxBullets;
+        bulletRegenAccum = 0f;
+        RefreshHUD();
+    }
+
     public void AdvanceFlashCooldown(float amount)
     {
         if (amount <= 0f) return;

@@ -41,12 +41,6 @@ public class DungeonManager : MonoBehaviour
     public int maxEnemies = 20;
     public int maxTraps = 12;
 
-    [Header("Between-Floor Healing")]
-    [Tooltip("HP healed after clearing a room. Decreases by healDecay each room.")]
-    public int healPerFloor = 3;
-    public int healDecay = 1;
-    public int minHeal = 1;
-
     [Header("Spawn Settings")]
     [Tooltip("Flash radius on room entry. Enemies won't spawn inside this radius.")]
     public float spawnFlashRadius = 10f;
@@ -66,9 +60,9 @@ public class DungeonManager : MonoBehaviour
     [Header("Spawn Prefabs (progressive mode)")]
     public GameObject enemyPrefab;
     public GameObject skitterPrefab;
-    [Tooltip("Fraction of the enemy budget spawned as Skitters (0 = none, 1 = all). 0.6 = generously Skitter-heavy.")]
+    [Tooltip("Fraction of the enemy budget spawned as Skitters (0 = none, 1 = all).")]
     [Range(0f, 1f)]
-    public float skitterFraction = 0.6f;
+    public float skitterFraction = 0.3f;
     public GameObject trapPrefab;
     public GameObject keyPrefab;
 
@@ -81,16 +75,16 @@ public class DungeonManager : MonoBehaviour
 
     // ── Cross-scene run state (static — survives scene loads) ───────────────
     /// <summary>Set before entering a boss scene so GameManager.BossDefeated knows where to return.</summary>
-    public static bool   IsReturningFromBoss = false;
-    public static int    RoomIndexBeforeBoss = 0;
-    public static string OriginSceneName     = "";
+    public static bool   IsReturningFromBoss  = false;
+    public static int    RoomIndexBeforeBoss  = 0;
+    public static string OriginSceneName      = "";
+    public static int    SavedBossRoomInterval = 5;
     // Boss pool: shuffled draw-without-replacement; refills automatically when empty.
     static readonly System.Collections.Generic.List<string> bossPool = new();
     // ────────────────────────────────────────────────────────────────────────
 
     private bool[,] currentGrid;
-    private int  currentRoomIndex   = 0;
-    private bool _nextRoomIsPostBoss = false;
+    private int  currentRoomIndex = 0;
 
     public int CurrentRoomIndex => currentRoomIndex;
 
@@ -107,7 +101,6 @@ public class DungeonManager : MonoBehaviour
         if (IsReturningFromBoss)
         {
             currentRoomIndex    = RoomIndexBeforeBoss;  // next call increments to +1
-            _nextRoomIsPostBoss = true;
             IsReturningFromBoss = false;
             RoomIndexBeforeBoss = 0;
             OriginSceneName     = "";
@@ -173,12 +166,19 @@ public class DungeonManager : MonoBehaviour
 
             // Apply normal per-floor heal before leaving (user decision: boss entry = normal heal)
             if (currentRoomIndex > 1)
-                HealPlayer();
+                ApplyHeal();
+
+            // Preserve player HP so the boss scene loads with the correct values
+            var bossEntryPlayer = GameObject.FindGameObjectWithTag("Player");
+            var bossEntryHP = bossEntryPlayer?.GetComponent<PlayerHealth>();
+            if (bossEntryHP != null)
+                PlayerHealth.SaveForSceneLoad(bossEntryHP.currentHealth, bossEntryHP.maxHealth);
 
             // Save run state so DungeonManager.Start can restore it on return
-            IsReturningFromBoss = true;
-            RoomIndexBeforeBoss = currentRoomIndex;
-            OriginSceneName     = SceneManager.GetActiveScene().name;
+            IsReturningFromBoss   = true;
+            RoomIndexBeforeBoss   = currentRoomIndex;
+            OriginSceneName       = SceneManager.GetActiveScene().name;
+            SavedBossRoomInterval = bossRoomInterval;
 
             SceneManager.LoadScene(nextBoss);
             yield break;   // stop coroutine — scene is loading
@@ -219,17 +219,8 @@ public class DungeonManager : MonoBehaviour
         if (progressiveMode)
         {
             if (currentRoomIndex > 1)
-            {
-                if (_nextRoomIsPostBoss)
-                {
-                    HealPostBoss();
-                    _nextRoomIsPostBoss = false;
-                }
-                else
-                {
-                    HealPlayer();
-                }
-            }
+                ApplyHeal();
+            PlayerAmmo.Instance?.RefillBullets();
             EmitSpawnFlash();
         }
     }
@@ -482,31 +473,26 @@ public class DungeonManager : MonoBehaviour
         fader.startIntensity = spawnFlashIntensity;
     }
 
-    void HealPlayer()
+    // Heal tier scales with boss count: +1 before first boss, +2 after boss 1, +3 after boss 2.
+    // Called after currentRoomIndex has been incremented.
+    void ApplyHeal()
     {
         var player = GameObject.FindGameObjectWithTag("Player");
         if (player == null) return;
-
         var hp = player.GetComponent<PlayerHealth>();
         if (hp == null) return;
 
-        int heal = Mathf.Max(healPerFloor - healDecay * (currentRoomIndex - 2), minHeal);
-        hp.currentHealth = Mathf.Min(hp.currentHealth + heal, hp.maxHealth);
+        int interval = bossRoomInterval > 0 ? bossRoomInterval : 5;
+        int tier = Mathf.Clamp(currentRoomIndex / interval + 1, 1, 3);
+        hp.currentHealth = Mathf.Min(hp.currentHealth + tier, hp.maxHealth);
         StatusHUD.Instance?.UpdateHP(hp.currentHealth, hp.maxHealth);
-        Debug.Log($"Healed {heal} HP (now {hp.currentHealth}/{hp.maxHealth})");
     }
 
-    void HealPostBoss()
+    // Preview: how much HP the NEXT room transition will heal (call before currentRoomIndex increments).
+    public int GetNextHealAmount()
     {
-        var player = GameObject.FindGameObjectWithTag("Player");
-        if (player == null) return;
-
-        var hp = player.GetComponent<PlayerHealth>();
-        if (hp == null) return;
-
-        hp.currentHealth = Mathf.Min(hp.currentHealth + 2, hp.maxHealth);
-        StatusHUD.Instance?.UpdateHP(hp.currentHealth, hp.maxHealth);
-        Debug.Log($"Post-boss heal: +2 HP (now {hp.currentHealth}/{hp.maxHealth})");
+        int interval = bossRoomInterval > 0 ? bossRoomInterval : 5;
+        return Mathf.Clamp((currentRoomIndex + 1) / interval + 1, 1, 3);
     }
 
     // ── Shared helpers ──────────────────────────────────────────────────

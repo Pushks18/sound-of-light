@@ -28,7 +28,7 @@ public class StatusHUD : MonoBehaviour
     {
         var hp = GetComponent<PlayerHealth>();
         maxHP = hp.maxHealth;
-        currentHP = maxHP;
+        currentHP = hp.currentHealth;
         BindHUD();
         RefreshHP();
         RefreshEnemy();

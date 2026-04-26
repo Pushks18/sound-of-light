@@ -89,6 +89,9 @@ public class RoomClearPortal : MonoBehaviour
             if (rb != null) rb.linearVelocity = Vector2.zero;
         }
 
+        // --- Reward preview popups ---
+        SpawnRewardPopups();
+
         // --- Phase 1: Portal appears under player (scale up from zero) ---
         float elapsed = 0f;
         transform.localScale = Vector3.zero;
@@ -198,6 +201,12 @@ public class RoomClearPortal : MonoBehaviour
         }
         else if (DungeonManager.IsReturningFromBoss && !string.IsNullOrEmpty(DungeonManager.OriginSceneName))
         {
+            // Preserve current HP so the endless scene restores it (DungeonManager.ApplyHeal adds on top)
+            if (player != null)
+            {
+                var ph = player.GetComponent<PlayerHealth>();
+                if (ph != null) PlayerHealth.SaveForSceneLoad(ph.currentHealth, ph.maxHealth);
+            }
             SceneManager.LoadScene(DungeonManager.OriginSceneName);
             yield break;  // portal & canvas destroyed by scene load; no fade-in needed
         }
@@ -223,6 +232,39 @@ public class RoomClearPortal : MonoBehaviour
     {
         if (fadeOverlay != null)
             fadeOverlay.color = new Color(0f, 0f, 0f, alpha);
+    }
+
+    void SpawnRewardPopups()
+    {
+        bool inEndlessRun = DungeonManager.Instance != null || DungeonManager.IsReturningFromBoss;
+        if (!inEndlessRun) return;
+
+        // Compute heal tier
+        int healTier = 0;
+        if (DungeonManager.Instance != null)
+            healTier = DungeonManager.Instance.GetNextHealAmount();
+        else if (DungeonManager.IsReturningFromBoss)
+        {
+            int interval = DungeonManager.SavedBossRoomInterval > 0 ? DungeonManager.SavedBossRoomInterval : 5;
+            healTier = Mathf.Clamp((DungeonManager.RoomIndexBeforeBoss + 1) / interval + 1, 1, 3);
+        }
+
+        // Actual HP gain (capped by missing HP)
+        var ph = player?.GetComponent<PlayerHealth>();
+        int actualHeal = ph != null ? Mathf.Min(healTier, ph.maxHealth - ph.currentHealth) : healTier;
+
+        // Bullet refill: only show if not already full
+        bool showAmmo = PlayerAmmo.Instance != null && PlayerAmmo.Instance.Bullets < PlayerAmmo.Instance.maxBullets;
+
+        if (player == null) return;
+        Vector3 basePos = player.position + Vector3.up * 1.3f;
+
+        if (actualHeal > 0)
+            RewardPopup.Spawn("+" + actualHeal + " ♥", new Color(0.25f, 1f, 0.35f), basePos);
+
+        if (showAmmo)
+            RewardPopup.Spawn("+Max Ammo", new Color(1f, 0.88f, 0.1f),
+                basePos + Vector3.up * (actualHeal > 0 ? 0.85f : 0f));
     }
 
     void BuildFadeOverlay()

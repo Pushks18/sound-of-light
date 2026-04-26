@@ -8,6 +8,7 @@ using UnityEngine;
 public class ScarabHitForwarder : MonoBehaviour
 {
     [SerializeField] bool isHead = false;  // tick on Head child; leave unchecked on WingL/WingR
+    public bool IsHead => isHead;
 
     ScarabAI scarab;
 

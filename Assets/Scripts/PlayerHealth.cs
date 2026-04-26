@@ -8,6 +8,16 @@ public class PlayerHealth : MonoBehaviour
     public int maxHealth = 3;
     [HideInInspector] public int currentHealth;
 
+    // Preserved across scene loads so boss scenes and returns don't reset HP
+    static int s_savedHP    = 0;
+    static int s_savedMaxHP = 0;
+
+    public static void SaveForSceneLoad(int hp, int maxHp)
+    {
+        s_savedHP    = hp;
+        s_savedMaxHP = maxHp;
+    }
+
     [Header("Damage Flash Settings")]
     [SerializeField]
     private float flashDuration = 0.08f;
@@ -32,7 +42,17 @@ public class PlayerHealth : MonoBehaviour
 
     void Awake()
     {
-        currentHealth = maxHealth;
+        if (s_savedHP > 0 && s_savedMaxHP > 0)
+        {
+            maxHealth     = s_savedMaxHP;
+            currentHealth = s_savedHP;
+            s_savedHP = s_savedMaxHP = 0;
+        }
+        else
+        {
+            currentHealth = maxHealth;
+        }
+
         sr = GetComponent<SpriteRenderer>();
         rb = GetComponent<Rigidbody2D>();
         if (sr != null)

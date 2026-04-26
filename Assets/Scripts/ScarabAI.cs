@@ -190,6 +190,15 @@ public class ScarabAI : MonoBehaviour
         foreach (var r in GetComponentsInChildren<SpriteRenderer>())
             r.sortingOrder = 10;
 
+        // Head armor must always render above body and wings
+        foreach (var fwd in GetComponentsInChildren<ScarabHitForwarder>())
+        {
+            if (fwd.IsHead)
+            {
+                var headSR = fwd.GetComponent<SpriteRenderer>();
+                if (headSR != null) headSR.sortingOrder = 13;
+            }
+        }
 
         if (headLight != null) headLight.intensity = 0f;
         if (backLight != null) backLight.intensity = 0f;
