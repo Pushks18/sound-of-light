@@ -18,6 +18,12 @@ public class LevelExit : MonoBehaviour
     {
         if (other.CompareTag("Player"))
         {
+            // In demo mode, the demo manager dictates which scene loads next.
+            if (DemoSequenceManager.IsActive)
+            {
+                DemoSequenceManager.Instance.Advance();
+                return;
+            }
             SceneManager.LoadScene(nextLevelSceneName);
         }
     }

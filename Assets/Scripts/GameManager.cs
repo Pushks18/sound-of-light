@@ -131,6 +131,15 @@ public class GameManager : MonoBehaviour
     /// </summary>
     public void BossDefeated()
     {
+        // Demo mode owns the post-boss flow — always spawn the portal so the
+        // player can walk into it and the demo's RoomClearPortal hook advances
+        // to the next step (instead of ending the game with PlayerWon).
+        if (DemoSequenceManager.IsActive)
+        {
+            RoomClearPortal.Spawn();
+            return;
+        }
+
         if (DungeonManager.IsReturningFromBoss)
         {
             // Progressive run — play the room-clear portal effect then load origin scene.

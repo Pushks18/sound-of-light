@@ -191,6 +191,15 @@ public class RoomClearPortal : MonoBehaviour
         if (roomLight != null)
             Destroy(roomLight.gameObject);
 
+        // Demo mode owns all scene transitions — short-circuit so the demo
+        // sequencer (not DungeonManager) decides what loads next. Works for
+        // both endless rooms (DungeonManager exists) and boss arenas (it doesn't).
+        if (DemoSequenceManager.IsActive && DemoSequenceManager.Instance != null)
+        {
+            DemoSequenceManager.Instance.NotifyChallengeCleared();
+            yield break;
+        }
+
         // Wait for room build + collider regeneration before fading back in.
         // When returning from a boss scene, DungeonManager lives in the origin scene
         // (not here), so load that scene directly — DungeonManager.Start will restore state.

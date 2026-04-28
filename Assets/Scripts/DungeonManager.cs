@@ -81,6 +81,14 @@ public class DungeonManager : MonoBehaviour
     public static int    SavedBossRoomInterval = 5;
     // Boss pool: shuffled draw-without-replacement; refills automatically when empty.
     static readonly System.Collections.Generic.List<string> bossPool = new();
+
+    /// <summary>
+    /// Demo mode: when ≥ 1, DungeonManager.Start() seeds currentRoomIndex so the
+    /// next LoadNextRoom call enters this exact room. Persists across death-restarts
+    /// of the same demo step so the player respawns at the same difficulty.
+    /// Set by DemoSequenceManager before loading ProgressiveRoomGen.
+    /// </summary>
+    public static int DemoStartRoomIndex = -1;
     // ────────────────────────────────────────────────────────────────────────
 
     private bool[,] currentGrid;
@@ -104,6 +112,14 @@ public class DungeonManager : MonoBehaviour
             IsReturningFromBoss = false;
             RoomIndexBeforeBoss = 0;
             OriginSceneName     = "";
+        }
+
+        // Demo mode: seed the room index so the next LoadNextRoom enters the chosen room.
+        // We don't clear DemoStartRoomIndex — DemoSequenceManager owns its lifetime so
+        // death-restarts of the same step come back to the same room.
+        if (DemoSequenceManager.IsActive && DemoStartRoomIndex > 0)
+        {
+            currentRoomIndex = DemoStartRoomIndex - 1;
         }
 
         LoadNextRoom("none");

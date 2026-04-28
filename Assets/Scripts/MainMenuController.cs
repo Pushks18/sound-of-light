@@ -13,6 +13,12 @@ public class MainMenuController : MonoBehaviour
     public static bool goToLevelOnLoad = false;
     public static int highestLevel = 0;
 
+    // GTA-style cheat code: type "demo" anywhere on the menu to launch the
+    // showcase sequence (Level 6 → boss → Level 12 → boss → Level 18 → boss → credits).
+    private const string DemoCheatCode = "demo";
+    private const int CheatBufferMax = 16;
+    private string cheatBuffer = string.Empty;
+
     void Start()
     {
         var playButton = GameObject.Find("PlayButton");
@@ -22,6 +28,29 @@ public class MainMenuController : MonoBehaviour
         {
             GoToLevelScreen();
             goToLevelOnLoad = false;
+        }
+    }
+
+    void Update()
+    {
+        if (string.IsNullOrEmpty(Input.inputString)) return;
+
+        foreach (char c in Input.inputString)
+        {
+            char lower = char.ToLower(c);
+            if (lower < 'a' || lower > 'z') continue;   // ignore non-letters
+
+            cheatBuffer += lower;
+            if (cheatBuffer.Length > CheatBufferMax)
+                cheatBuffer = cheatBuffer.Substring(cheatBuffer.Length - CheatBufferMax);
+
+            if (cheatBuffer.EndsWith(DemoCheatCode))
+            {
+                cheatBuffer = string.Empty;
+                Debug.Log("[MainMenu] Demo cheat activated.");
+                DemoSequenceManager.StartDemo();
+                return;
+            }
         }
     }
 
