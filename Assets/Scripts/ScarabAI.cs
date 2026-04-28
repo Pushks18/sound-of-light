@@ -187,17 +187,18 @@ public class ScarabAI : MonoBehaviour
         rb = GetComponent<Rigidbody2D>();
         sr = GetComponent<SpriteRenderer>();
 
+        // Body = 10, flapWings = 11, static wings = 12, head = 13
         foreach (var r in GetComponentsInChildren<SpriteRenderer>())
             r.sortingOrder = 10;
 
-        // Head armor must always render above body and wings
+        if (flapWingLeft  != null) flapWingLeft.sortingOrder  = 11;
+        if (flapWingRight != null) flapWingRight.sortingOrder = 11;
+
         foreach (var fwd in GetComponentsInChildren<ScarabHitForwarder>())
         {
-            if (fwd.IsHead)
-            {
-                var headSR = fwd.GetComponent<SpriteRenderer>();
-                if (headSR != null) headSR.sortingOrder = 13;
-            }
+            var partSR = fwd.GetComponent<SpriteRenderer>();
+            if (partSR == null) continue;
+            partSR.sortingOrder = fwd.IsHead ? 13 : 12;
         }
 
         if (headLight != null) headLight.intensity = 0f;
