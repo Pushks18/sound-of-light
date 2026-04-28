@@ -165,6 +165,7 @@ public class VesperAI : MonoBehaviour
 
     void Awake()
     {
+        if (DemoSequenceManager.IsActive) maxHealth = DemoSequenceManager.DemoBossMaxHealth;
         health = maxHealth;
         sr = GetComponent<SpriteRenderer>();
 

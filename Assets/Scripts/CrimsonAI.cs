@@ -108,6 +108,7 @@ public class CrimsonAI : MonoBehaviour
 
     void Awake()
     {
+        if (DemoSequenceManager.IsActive) maxHealth = DemoSequenceManager.DemoBossMaxHealth;
         health = maxHealth;
         rb = GetComponent<Rigidbody2D>();
         BuildVisuals();

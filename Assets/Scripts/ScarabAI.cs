@@ -183,6 +183,7 @@ public class ScarabAI : MonoBehaviour
 
     void Awake()
     {
+        if (DemoSequenceManager.IsActive) maxHealth = DemoSequenceManager.DemoBossMaxHealth;
         currentHealth = maxHealth;
         rb = GetComponent<Rigidbody2D>();
         sr = GetComponent<SpriteRenderer>();

@@ -49,17 +49,26 @@ public class DemoSequenceManager : MonoBehaviour
         public int health = 6;
     }
 
+    /// <summary>
+    /// Boss max-health override applied during demo mode (replaces each boss's
+    /// inspector-set maxHealth in their Awake). 6 lets bosses die in ~3 slashes
+    /// so the showcase keeps moving.
+    /// </summary>
+    public const int DemoBossMaxHealth = 6;
+
     [Header("Sequence")]
-    [Tooltip("Steps played in order. Default matches the showcase demo: endless rooms 6/12/18 with bosses interleaved, HP +2 per step.")]
+    [Tooltip("Steps played in order. Default: endless rooms 6/12/18/24 with all four bosses interleaved, player HP +2 per step.")]
     [SerializeField]
     private DemoStep[] sequence = new DemoStep[]
     {
         new DemoStep { type = StepType.Endless, sceneName = "ProgressiveRoomGen", endlessRoomIndex = 6,  health = 6  },
-        new DemoStep { type = StepType.Boss,    sceneName = "ScarabScene",                              health = 8  }, // Boss 1
+        new DemoStep { type = StepType.Boss,    sceneName = "ScarabScene",                              health = 8  }, // Boss 1 — Scarab
         new DemoStep { type = StepType.Endless, sceneName = "ProgressiveRoomGen", endlessRoomIndex = 12, health = 10 },
-        new DemoStep { type = StepType.Boss,    sceneName = "VesperScene",                              health = 12 }, // Boss 2
+        new DemoStep { type = StepType.Boss,    sceneName = "VesperScene",                              health = 12 }, // Boss 2 — Vesper
         new DemoStep { type = StepType.Endless, sceneName = "ProgressiveRoomGen", endlessRoomIndex = 18, health = 14 },
-        new DemoStep { type = StepType.Boss,    sceneName = "GoblinBossScene",                          health = 16 }, // Boss 3 (Crimson)
+        new DemoStep { type = StepType.Boss,    sceneName = "GoblinBossScene",                          health = 16 }, // Boss 3 — Crimson (goblin)
+        new DemoStep { type = StepType.Endless, sceneName = "ProgressiveRoomGen", endlessRoomIndex = 24, health = 18 },
+        new DemoStep { type = StepType.Boss,    sceneName = "IsshinBossScene",                          health = 20 }, // Boss 4 — Umbra (isshin)
     };
 
     int currentStep = -1;

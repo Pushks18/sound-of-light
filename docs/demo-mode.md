@@ -19,22 +19,27 @@ The cheat is intentionally invisible — there's no button, hint, or UI. Letters
 | 3 | `ProgressiveRoomGen` | Room **12** — endless mode at room-12 difficulty | **10** |
 | 4 | `VesperScene` | Boss 2 — Vesper | **12** |
 | 5 | `ProgressiveRoomGen` | Room **18** — endless mode at room-18 difficulty | **14** |
-| 6 | `GoblinBossScene` | Boss 3 — Crimson | **16** |
-| 7 | *(credits)* | Auto fade-through "Thank You" + 5 team names | — |
+| 6 | `GoblinBossScene` | Boss 3 — Crimson (the goblin) | **16** |
+| 7 | `ProgressiveRoomGen` | Room **24** — endless mode at room-24 difficulty | **18** |
+| 8 | `IsshinBossScene` | Boss 4 — Umbra (the isshin) | **20** |
+| 9 | *(credits)* | Auto fade-through "Thank You" + 5 team names | — |
 
 After credits, the player is returned to the Main Menu.
 
-**HP progression:** every step starts at exactly the listed value (both `currentHealth` and `maxHealth`). The progression is **+2 every step** — `6 → 8 → 10 → 12 → 14 → 16` — so the player has more headroom each round to compensate for the increasing scaling. Health is forced on every scene load, so a death-restart of any step respawns at the same HP value.
+**Player HP progression:** every step starts at exactly the listed value (both `currentHealth` and `maxHealth`). The progression is **+2 every step** — `6 → 8 → 10 → 12 → 14 → 16 → 18 → 20`. Health is forced on every scene load, so a death-restart of any step respawns at the same HP value.
+
+**Boss HP override:** in demo mode, every boss's `maxHealth` is replaced with `DemoSequenceManager.DemoBossMaxHealth` (default `6`) inside their `Awake()`. That means roughly **3 slashes** to kill any boss (slash deals 2 damage). This keeps the showcase moving — players don't get locked into a 60-second boss fight on stage. Outside of demo mode, every boss keeps its inspector-set HP (Scarab 30, Vesper 15, Crimson 75, Umbra 250).
 
 ## Required Build Settings
 
-You must add **all four** of these scenes to **File → Build Settings → Scenes In Build** (drag them in from `Assets/Scenes/`):
+You must add **all six** of these scenes to **File → Build Settings → Scenes In Build** (drag them in from `Assets/Scenes/`):
 
 - `MainMenu`
 - `ProgressiveRoomGen`
 - `ScarabScene`
 - `VesperScene`
 - `GoblinBossScene`
+- `IsshinBossScene`
 
 If any are missing, the chain halts with a `Scene not found in Build Settings` error in the console (which is exactly what happened in the first test run with `Level6`). The demo doesn't need any `Level1`–`Level9` scenes since endless mode is the entire chain.
 
@@ -58,6 +63,10 @@ When the player walks into the portal, the portal's coroutine reaches its scene-
 | `Assets/Scripts/RoomClearPortal.cs` | modified | At scene-transition time, calls `DemoSequenceManager.NotifyChallengeCleared()` if demo is active |
 | `Assets/Scripts/GameManager.cs` | modified | `BossDefeated()` always spawns the portal in demo mode (skips the "standalone scene → end-game" branch) |
 | `Assets/Scripts/LevelExit.cs` | modified | Calls `DemoSequenceManager.Advance()` if demo is active — vestigial, kept in case you ever add level-style scenes to the demo sequence |
+| `Assets/Scripts/ScarabAI.cs` | modified | One-line check at top of `Awake()`: in demo mode, `maxHealth = DemoSequenceManager.DemoBossMaxHealth` |
+| `Assets/Scripts/VesperAI.cs` | modified | Same one-line demo-HP override in `Awake()` |
+| `Assets/Scripts/CrimsonAI.cs` | modified | Same one-line demo-HP override in `Awake()` |
+| `Assets/Scripts/ShadowBossAI.cs` | modified | Same one-line demo-HP override in `Awake()` |
 
 No gameplay code is touched outside of demo-active checks. Outside the demo, every system behaves exactly as before — the new code paths only run when `DemoSequenceManager.IsActive` is true.
 
