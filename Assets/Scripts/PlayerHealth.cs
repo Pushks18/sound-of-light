@@ -114,7 +114,7 @@ public class PlayerHealth : MonoBehaviour
         StatusHUD.Instance?.UpdateHP(currentHealth, maxHealth);
 
         // Flash red when hit
-        DamageNumber.Spawn(dmg, transform.position);
+        DamageNumber.Spawn(dmg, transform.position, true);
         if (!isFlashing)
             StartCoroutine(DamageFlash());
 

@@ -19,6 +19,8 @@ public class MinimapRadar : MonoBehaviour
     public Color borderColor = new Color(1f, 1f, 1f, 0.15f);
     public Color enemyDormantColor = new Color(1f, 0.55f, 0.5f, 0.35f);
     public Color enemyActiveColor = new Color(1f, 0.1f, 0.05f, 1f);
+    public Color exitColor;
+    public float exitDotSize = 13f;
     public Color playerColor = new Color(1f, 1f, 1f, 0.6f);
     public Color portalColor = new Color(0.3f, 1f, 0.5f, 1f);
     public float portalDotSize = 14f;
@@ -54,6 +56,10 @@ public class MinimapRadar : MonoBehaviour
     private Texture2D roomLayoutTex;
     private TilemapRoomBuilder cachedBuilder;
     private int lastBuiltRoom = -1;
+
+    [Header("Data Source")]
+    public bool useSceneGrid = false;
+    private TilemapRoomBuilder sceneGridBuilder;
 
     struct TrackedDot
     {
@@ -100,6 +106,14 @@ public class MinimapRadar : MonoBehaviour
             Color pColor = portalColor;
             pColor.a = pulse;
             PlaceDot(portal.transform.position, pColor, portalDotSize);
+        }
+
+        // Exit — blue dot
+        var exit = FindAnyObjectByType<LevelExit>();
+        if (exit != null)
+        {
+            Color eColor = exitColor;
+            PlaceDot(exit.transform.position, eColor, exitDotSize);
         }
 
         // Hide unused dots and triangles
@@ -306,32 +320,43 @@ public class MinimapRadar : MonoBehaviour
 
     void UpdateRoomLayout()
     {
-        var dm = DungeonManager.Instance;
-        if (dm == null || dm.roomBuilder == null)
+        TilemapRoomBuilder builder = null;
+
+        if (useSceneGrid)
+        {
+            builder = GetSceneGridBuilder();
+        }
+        else
+        {
+            var dm = DungeonManager.Instance;
+            if (dm != null)
+                builder = dm.roomBuilder;
+        }
+
+        if (builder == null)
         {
             if (roomLayoutImage != null) roomLayoutImage.enabled = false;
             return;
         }
 
-        // Rebuild texture when room changes
-        if (dm.CurrentRoomIndex != lastBuiltRoom)
+        // Rebuild texture when room changes (or always for scene grid)
+        if (useSceneGrid || builder != cachedBuilder)
         {
-            RebuildRoomTexture(dm.roomBuilder);
-            lastBuiltRoom = dm.CurrentRoomIndex;
+            RebuildRoomTexture(builder);
+            cachedBuilder = builder;
+            lastBuiltRoom = useSceneGrid ? -1 : DungeonManager.Instance.CurrentRoomIndex;
         }
 
-        if (roomLayoutImage == null || cachedBuilder == null) return;
+        if (roomLayoutImage == null) return;
         roomLayoutImage.enabled = true;
 
         float pixelsPerUnit = radarSize / (2f * worldRadius);
-        int w = cachedBuilder.width;
-        int h = cachedBuilder.height;
+        int w = builder.width;
+        int h = builder.height;
 
-        // Size of room image in radar pixels
         roomLayoutImage.rectTransform.sizeDelta = new Vector2(w * pixelsPerUnit, h * pixelsPerUnit);
 
-        // Position: center of grid in world, mapped to radar offset from player
-        Vector3 gridCenter = cachedBuilder.CellToWorld(new Vector2Int(w / 2, h / 2));
+        Vector3 gridCenter = builder.CellToWorld(new Vector2Int(w / 2, h / 2));
         Vector2 offset = (Vector2)(gridCenter - transform.position);
         roomLayoutImage.rectTransform.anchoredPosition = offset * pixelsPerUnit;
     }
@@ -465,5 +490,25 @@ public class MinimapRadar : MonoBehaviour
         tex.filterMode = FilterMode.Bilinear;
         circleSprite = Sprite.Create(tex, new Rect(0, 0, size, size), new Vector2(0.5f, 0.5f), size);
         return circleSprite;
+    }
+
+    TilemapRoomBuilder GetSceneGridBuilder()
+    {
+        if (sceneGridBuilder != null) return sceneGridBuilder;
+
+        GameObject gridObj = GameObject.Find("Grid");
+        if (gridObj == null)
+        {
+            Debug.LogWarning("MinimapRadar: No GameObject named 'Grid' found.");
+            return null;
+        }
+
+        sceneGridBuilder = gridObj.GetComponent<TilemapRoomBuilder>();
+        if (sceneGridBuilder == null)
+        {
+            Debug.LogWarning("MinimapRadar: Grid object has no TilemapRoomBuilder.");
+        }
+
+        return sceneGridBuilder;
     }
 }

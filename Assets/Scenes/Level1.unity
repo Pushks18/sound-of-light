@@ -643,6 +643,8 @@ MonoBehaviour:
   muzzleFlashLight: {fileID: 664189428}
   flashDuration: 0.1
   energyCost: 1
+  aimAssistRange: 10
+  aimAssistAngle: 15
 --- !u!114 &326784022
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -6504,6 +6506,10 @@ MonoBehaviour:
   lightColor: {r: 1, g: 0.9, b: 0.6, a: 1}
   arcColor: {r: 1, g: 0.9, b: 0.4, a: 0.5}
   arcEdgeColor: {r: 1, g: 1, b: 0.8, a: 0.8}
+  spamThreshold: 7
+  spamWindow: 2
+  pushbackForce: 18
+  pushbackLockout: 0.6
   disableSlashOnLevel: 1
 --- !u!114 &900000103
 MonoBehaviour:

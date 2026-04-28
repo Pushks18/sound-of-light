@@ -6,9 +6,23 @@ public class LevelExit : MonoBehaviour
 {
     [SerializeField] private GameObject exitScreen;
     [SerializeField] private TextMeshProUGUI hpText;
+    [SerializeField] private string nextLevelSceneName;
     public static int curLevel;
     private bool levelDone = false;
+
+    public bool GetLevelDone()
+    {
+        return levelDone;
+    }
     private void OnTriggerEnter2D(Collider2D other)
+    {
+        if (other.CompareTag("Player"))
+        {
+            SceneManager.LoadScene(nextLevelSceneName);
+        }
+    }
+
+    /*private void OnTriggerEnter2D(Collider2D other)
     {
         if (other.CompareTag("Player"))
         {
@@ -24,11 +38,6 @@ public class LevelExit : MonoBehaviour
             }
             exitScreen.SetActive(true);
         }
-    }
-
-    public bool GetLevelDone()
-    {
-        return levelDone;
     }
 
     public void LoadMainMenu()
@@ -88,5 +97,5 @@ public class LevelExit : MonoBehaviour
         RunKillAnalytics.Instance?.RecordCurrentLevelCleared();
         LevelExit.curLevel = nextLevel;
         SceneManager.LoadScene(sceneName);
-    }
+    }*/
 }

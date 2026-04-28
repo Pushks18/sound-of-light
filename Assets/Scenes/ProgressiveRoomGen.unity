@@ -1315,9 +1315,9 @@ MonoBehaviour:
   slashDamage: 2
   cooldown: 0.15
   lightIntensity: 1.5
-  lightColor: {r: 1, g: 0.9, b: 0.6, a: 1}
-  arcColor: {r: 1, g: 0.9, b: 0.4, a: 0.5}
-  arcEdgeColor: {r: 1, g: 1, b: 0.8, a: 0.8}
+  lightColor: {r: 0.69803923, g: 0.8, b: 1, a: 1}
+  arcColor: {r: 0.69803923, g: 0.8, b: 1, a: 0.5}
+  arcEdgeColor: {r: 0.7989943, g: 0.86368084, b: 0.990566, a: 0.8}
   spamThreshold: 7
   spamWindow: 2
   pushbackForce: 18
@@ -1361,7 +1361,7 @@ MonoBehaviour:
   waveIntensity: 2.5
   waveDuration: 5
   energyCost: 10
-  waveColor: {r: 1, g: 0.95, b: 0.8, a: 1}
+  waveColor: {r: 0.69803923, g: 0.8, b: 1, a: 1}
   idleFlashDelay: 4
   idleFlashRadiusMult: 0.6
   idleFlashIntensityMult: 0.5
@@ -1499,15 +1499,15 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 145902842105164822, guid: 0df2bb206e274401ba9b64f7e8f028c6, type: 3}
       propertyPath: m_AnchorMax.y
-      value: 0
+      value: 0.5
       objectReference: {fileID: 0}
     - target: {fileID: 145902842105164822, guid: 0df2bb206e274401ba9b64f7e8f028c6, type: 3}
       propertyPath: m_AnchorMin.y
-      value: 0
+      value: 0.5
       objectReference: {fileID: 0}
     - target: {fileID: 145902842105164822, guid: 0df2bb206e274401ba9b64f7e8f028c6, type: 3}
       propertyPath: m_SizeDelta.x
-      value: 0
+      value: 300
       objectReference: {fileID: 0}
     - target: {fileID: 145902842105164822, guid: 0df2bb206e274401ba9b64f7e8f028c6, type: 3}
       propertyPath: m_SizeDelta.y
@@ -1607,7 +1607,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 6271736930837420147, guid: 0df2bb206e274401ba9b64f7e8f028c6, type: 3}
       propertyPath: m_IsActive
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 6865640569575867547, guid: 0df2bb206e274401ba9b64f7e8f028c6, type: 3}
       propertyPath: m_AnchorMax.y
@@ -2252,10 +2252,10 @@ MonoBehaviour:
   doorTilemap: {fileID: 282490923}
   width: 0
   height: 0
-  floorTile: {fileID: 11400000, guid: 67015b045095e4c8f8d864a06d14cae8, type: 2}
+  floorTile: {fileID: 11400000, guid: 3fad9c4ce789643aab5172b1dee809a5, type: 2}
   wallTile: {fileID: 11400000, guid: 70977cd573ecc4ad18ba368e544bc3fa, type: 2}
   doorTile: {fileID: 11400000, guid: 6778e0447036d4dfc838097a7243fa55, type: 2}
-  floorBaseColor: {r: 1, g: 0.43618035, b: 0, a: 1}
+  floorBaseColor: {r: 0.4716981, g: 0.45033818, b: 0.43387327, a: 1}
   wallBaseColor: {r: 0.18, g: 0.16, b: 0.14, a: 1}
   noiseScale: 0.12
   noiseStrength: 0.25

@@ -15,7 +15,7 @@ public class DamageNumber : MonoBehaviour
     private float elapsed;
 
     // ── Public API ───────────────────────────────────────────────────────────
-    public static void Spawn(int amount, Vector3 worldPos)
+    public static void Spawn(int amount, Vector3 worldPos, bool isPlayer = false)
     {
         var go = new GameObject("DamageNumber");
 
@@ -32,6 +32,8 @@ public class DamageNumber : MonoBehaviour
         tmp.alignment = TextAlignmentOptions.Center;
         tmp.fontStyle = FontStyles.Bold;
         tmp.color     = new Color(1f, 0.22f, 0.1f, 1f); // hot red-orange
+        if (isPlayer)
+            tmp.color = new Color(1f, 1f, 1f, 1f); // white for player
 
         // Outline so it pops on any background
         tmp.outlineWidth = 0.25f;

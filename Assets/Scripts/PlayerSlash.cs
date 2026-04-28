@@ -11,11 +11,11 @@ public class PlayerSlash : MonoBehaviour
 
     [Header("Light Settings")]
     public float lightIntensity = 1.5f;
-    public Color lightColor = new Color(1f, 0.9f, 0.6f);
+    public Color lightColor;
 
     [Header("Visual Arc")]
-    public Color arcColor = new Color(1f, 0.9f, 0.4f, 0.5f);
-    public Color arcEdgeColor = new Color(1f, 1f, 0.8f, 0.8f);
+    public Color arcColor;
+    public Color arcEdgeColor;
 
     [Header("Spam Pushback")]
     [SerializeField] int   spamThreshold    = 7;

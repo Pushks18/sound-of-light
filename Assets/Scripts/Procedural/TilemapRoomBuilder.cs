@@ -31,7 +31,7 @@ public class TilemapRoomBuilder : MonoBehaviour
 
     [Header("Colors")]
     [Tooltip("Base color for floor tiles. Alpha is preserved from the tile sprite.")]
-    public Color floorBaseColor  = new Color(0.72f, 0.68f, 0.60f); // warm stone
+    public Color floorBaseColor;
     [Tooltip("Base color for wall tiles — usually much darker than the floor.")]
     public Color wallBaseColor   = new Color(0.18f, 0.16f, 0.14f); // near-black
     [Tooltip("Perlin noise scale — larger values = coarser variation across the cave.")]

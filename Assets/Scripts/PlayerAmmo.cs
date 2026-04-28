@@ -170,7 +170,7 @@ public class PlayerAmmo : MonoBehaviour
         foreach (var t in all)
         {
             string n = t.gameObject.name;
-            if (bulletLabel == null && n == "Bullets") bulletLabel = t;
+            if (bulletLabel == null && n == "Shoot") bulletLabel = t;
             if (dashLabel == null && n == "Dash") dashLabel = t;
             if (flashLabel == null && n == "Flash" && t.transform.parent?.name == "AmmoContainer") flashLabel = t;
         }
@@ -183,7 +183,7 @@ public class PlayerAmmo : MonoBehaviour
     void RefreshHUD()
     {
         if (bulletLabel != null)
-            bulletLabel.text = FormatRow("[K] Bullets", Bullets, maxBullets, GetCooldownRemaining(nextBulletUseTime));
+            bulletLabel.text = FormatRow("[K] Shoot", Bullets, maxBullets, GetCooldownRemaining(nextBulletUseTime));
 
         if (dashLabel != null)
             dashLabel.text = FormatRow("[Shift] Dash", Dashes, maxDashes, GetCooldownRemaining(nextDashUseTime));

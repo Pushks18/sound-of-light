@@ -8,7 +8,7 @@ public class PlayerLightWave : MonoBehaviour
     public float waveIntensity = 2.5f;
     public float waveDuration = 5f;
     public float energyCost = 10f;
-    public Color waveColor = new Color(1f, 0.95f, 0.8f);
+    public Color waveColor;
 
     [Header("Idle Auto-Flash")]
     [Tooltip("Seconds of no input before an automatic flash fires.")]
@@ -87,7 +87,7 @@ public class PlayerLightWave : MonoBehaviour
 
         var light = waveObj.AddComponent<Light2D>();
         light.lightType = Light2D.LightType.Point;
-        light.color = new Color(0.8f, 0.85f, 1f); // cooler tint to distinguish from manual flash
+        light.color = new Color(0.698f, 0.800f, 1.000f);
         light.intensity = intensity;
         light.pointLightOuterRadius = radius;
         light.pointLightInnerRadius = radius * 0.3f;
