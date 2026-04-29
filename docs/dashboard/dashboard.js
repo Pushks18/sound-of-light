@@ -277,7 +277,11 @@
     $("kpi-deaths").textContent = fmt.format(a.deaths);
     $("kpi-kills").textContent = fmt.format(a.kills);
     $("kpi-lastplay").textContent = a.lastPlay
-      ? `${relTime(a.lastPlay)} (${a.lastPlay.toLocaleString()})`
+      ? `${relTime(a.lastPlay)} (${a.lastPlay.toLocaleString("en-US", {
+          timeZone: "America/Los_Angeles",
+          year: "numeric", month: "short", day: "numeric",
+          hour: "numeric", minute: "2-digit", timeZoneName: "short",
+        })})`
       : "—";
 
     renderKillMethods(a.killMethods);
