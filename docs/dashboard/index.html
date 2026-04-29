@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Sound of Light — Live Analytics</title>
+<link rel="stylesheet" href="style.css" />
+<script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+</head>
+<body>
+<header>
+  <div class="title">
+    <h1>Sound of Light</h1>
+    <span class="subtitle">Live Player Analytics</span>
+  </div>
+  <div class="status">
+    <span id="status-dot" class="dot loading"></span>
+    <span id="status-text">Loading…</span>
+    <button id="refresh-btn" title="Refresh now">⟳</button>
+  </div>
+</header>
+
+<main>
+  <section class="kpis">
+    <div class="kpi"><div class="kpi-label">Unique Sessions</div><div class="kpi-value" id="kpi-sessions">—</div></div>
+    <div class="kpi"><div class="kpi-label">Runs Played</div><div class="kpi-value" id="kpi-runs">—</div></div>
+    <div class="kpi"><div class="kpi-label">Total Deaths</div><div class="kpi-value" id="kpi-deaths">—</div></div>
+    <div class="kpi"><div class="kpi-label">Total Kills</div><div class="kpi-value" id="kpi-kills">—</div></div>
+    <div class="kpi"><div class="kpi-label">Last Play</div><div class="kpi-value small" id="kpi-lastplay">—</div></div>
+  </section>
+
+  <section class="grid">
+    <div class="card">
+      <h2>Kill Method Mix</h2>
+      <canvas id="kill-method-chart"></canvas>
+    </div>
+    <div class="card">
+      <h2>Deaths Over Time</h2>
+      <div class="tabs">
+        <button class="tab active" data-window="24h">Last 24h</button>
+        <button class="tab" data-window="7d">Last 7d</button>
+        <button class="tab" data-window="all">All</button>
+      </div>
+      <canvas id="deaths-time-chart"></canvas>
+    </div>
+    <div class="card wide">
+      <h2>Deaths by Level</h2>
+      <p class="hint">Where players are dying — higher bars mean a tough difficulty wall.</p>
+      <canvas id="deaths-by-level-chart"></canvas>
+    </div>
+    <div class="card wide">
+      <h2>Run Outcomes</h2>
+      <canvas id="outcome-chart"></canvas>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <p>Auto-refreshes every 60s · Source: Google Form responses ·
+     <a href="https://github.com/Pushks18/sound-of-light">GitHub</a></p>
+</footer>
+
+<script src="config.js"></script>
+<script src="dashboard.js"></script>
+</body>
+</html>
