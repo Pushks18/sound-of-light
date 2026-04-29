@@ -54,6 +54,27 @@ header {
   margin-left: 6px;
 }
 
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+}
+
+.datebox {
+  text-align: right;
+  line-height: 1.2;
+}
+.header-date {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+}
+.header-time {
+  font-size: 12px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
 .status {
   display: flex;
   align-items: center;

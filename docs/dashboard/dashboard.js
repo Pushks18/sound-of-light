@@ -312,6 +312,16 @@
 
   $("refresh-btn").addEventListener("click", refresh);
 
+  function updateClock() {
+    const now = new Date();
+    $("header-date").textContent = now.toLocaleDateString(undefined, {
+      weekday: "short", year: "numeric", month: "short", day: "numeric",
+    });
+    $("header-time").textContent = now.toLocaleTimeString();
+  }
+  updateClock();
+  setInterval(updateClock, 1000);
+
   refresh();
   setInterval(refresh, cfg.refreshIntervalMs);
 })();
